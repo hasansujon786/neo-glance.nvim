@@ -533,4 +533,6 @@ end
 
 Glance.open = Glance.actions.open
 
+Glance.open_history = create
+
 return Glance
