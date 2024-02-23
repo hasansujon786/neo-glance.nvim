@@ -374,6 +374,7 @@ function Glance:create(opts)
     win_opts = preview_win_opts,
     preview_bufnr = list:get_current_item().bufnr,
   })
+  vim.api.nvim_win_set_var(preview.winnr, 'glance_preview_window', true)
 
   local scope = {
     list = list,
