@@ -1,39 +1,31 @@
+local NuiLine = require('nui.line')
+local NuiText = require('nui.text')
 local NuiTree = require('nui.tree')
+local mock_data = require('peep.mock_data')
 local M = {}
 
 M.merge = function(...)
   return vim.tbl_deep_extend('force', ...)
 end
 
-function M.lsp_results_to_locations(results)
-  local loc = {}
-
-  for _, value in ipairs(results) do
-    if loc[value.uri] == nil then
-      loc[value.uri] = { { range = value.range } }
-    else
-      table.insert(loc[value.uri], { range = value.range })
-    end
-  end
-
-  return loc
-  -- return require('peep.mock_data').locations_from_results
-end
-
-function M.create_tree_nodes(locations)
+function M.create_tree_nodes_from_locations(locations)
   local nodes = {}
 
-  for uri, childrensData in pairs(locations) do
-    local childNodes = {}
+  for uri, buf_data in pairs(locations) do
+    local child_nodes = {}
 
-    for childIdx, childLocationData in ipairs(childrensData) do
-      table.insert(
-        childNodes,
-        NuiTree.Node({ text = 'child-' .. tostring(childIdx) })
-      )
+    for i, child_data in ipairs(buf_data.items) do
+      local v = child_data.preview_line.value
+
+      local line = NuiLine({
+        NuiText(v.before),
+        NuiText(v.inside, 'GlanceListMatch'),
+        NuiText(v.after),
+      })
+      table.insert(child_nodes, NuiTree.Node({ id = 'child-' .. tostring(i) .. uri, text = line }))
     end
 
-    table.insert(nodes, NuiTree.Node({ text = uri }, childNodes))
+    table.insert(nodes, NuiTree.Node({ id = 'parent-' .. uri, text = buf_data.filename }, child_nodes))
   end
   return nodes
 end

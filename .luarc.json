@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "workspace.library": [
+    "C:\\Users\\hasan\\AppData\\Local\\nvim-data\\lazy\\nui.nvim",
+    "C:\\Users\\hasan\\AppData\\Local\\nvim-data\\lazy\\neodev.nvim\\types\\stable",
+    "C:\\tools\\neovim\\nvim-win64\\share\\nvim\\runtime\\lua",
+    "${3rd}/luv/library",
+    "${3rd}/luassert/library"
+  ]
+}

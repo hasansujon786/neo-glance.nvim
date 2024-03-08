@@ -43,8 +43,10 @@ function Peep:setup(new_config)
   return self
 end
 
+-- 'textDocument/definition',
 ---@param method? string
 function Peep:open(method)
+  method = method or 'textDocument/references'
   self.lsp:references(method)
 end
 

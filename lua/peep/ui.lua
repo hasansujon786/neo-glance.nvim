@@ -1,9 +1,9 @@
-local Popup = require('nui.popup')
 local Input = require('nui.input')
-local Menu = require('nui.menu')
-local Text = require('nui.text')
 local Layout = require('nui.layout')
+local Menu = require('nui.menu')
 local NuiTree = require('nui.tree')
+local Popup = require('nui.popup')
+local Text = require('nui.text')
 local event = require('nui.utils.autocmd').event
 
 local NuiLine = require('nui.line')
@@ -32,15 +32,10 @@ function Ui:new(settings)
 end
 
 ---@param opts UiRenderOpts
-function Ui:render(opts)
-  -- _G.loc = require('peep.util').process_locations(results, params, 'utf-16')
-
-  self:handle_render(opts)
-end
-
-function Ui:handle_render(opts)
-  local preview_conf = util.merge(self.settings.preview, opts.preview or {})
-  local list_conf = util.merge(self.settings.list, opts.list or {})
+---@param node_extractor fun(locations)
+function Ui:render(opts, node_extractor)
+  local preview_conf = util.merge(self.settings.preview, opts.preview_opts or {})
+  local list_conf = util.merge(self.settings.list, opts.list_opts or {})
 
   local list_pop = Popup(list_conf)
   local preview_pop = Popup(preview_conf)
@@ -53,12 +48,12 @@ function Ui:handle_render(opts)
     },
     Layout.Box({
       Layout.Box(preview_pop, { grow = 1 }),
-      Layout.Box(list_pop, { size = { width = 40 } }),
+      Layout.Box(list_pop, { size = { width = 50 } }),
     }, { dir = 'row' })
   )
 
   layout:mount()
-  self:render_list(list_pop, opts.locations)
+  self:render_list(list_pop, opts, node_extractor)
 
   local exit_win = function()
     layout:unmount()
@@ -74,13 +69,13 @@ end
 
 ---comment
 ---@param list_pop NuiPopup
-function Ui:render_list(list_pop, locations)
-  local nodes = util.create_tree_nodes(locations)
-
+---@param opts UiRenderOpts
+---@param node_extractor fun(locations)
+function Ui:render_list(list_pop, opts, node_extractor)
   local tree = NuiTree({
     bufnr = list_pop.bufnr,
     -- winid = split.winid,
-    nodes = nodes,
+    nodes = node_extractor(opts.locations),
     prepare_node = function(node)
       local line = NuiLine()
 
@@ -192,10 +187,5 @@ end
 function Ui:configure(settings)
   self.settings = settings
 end
-
----@class UiRenderOpts
----@field preview? nui_popup_options
----@field list? nui_popup_options
----@field locations table
 
 return Ui

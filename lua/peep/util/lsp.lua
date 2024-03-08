@@ -1,60 +1,137 @@
-local protocol = require('vim.lsp.protocol')
-local snippet = require('vim.lsp._snippet')
-local validate = vim.validate
-local api = vim.api
-local list_extend = vim.list_extend
-local highlight = require('vim.highlight')
-local uv = vim.loop
-
-local npcall = vim.F.npcall
-local split = vim.split
+local Range = require('glance.range')
+local Renderer = require('glance.renderer')
+local Winbar = require('glance.winbar')
+local config = require('glance.config')
+local folds = require('glance.folds')
+local lsp = require('glance.lsp')
+local utils = require('glance.utils')
 
 local M = {}
 
-local default_border = {
-  { '', 'NormalFloat' },
-  { '', 'NormalFloat' },
-  { '', 'NormalFloat' },
-  { ' ', 'NormalFloat' },
-  { '', 'NormalFloat' },
-  { '', 'NormalFloat' },
-  { '', 'NormalFloat' },
-  { ' ', 'NormalFloat' },
+local winhl = {
+  'Normal:GlanceListNormal',
+  'CursorLine:GlanceListCursorLine',
+  'EndOfBuffer:GlanceListEndOfBuffer',
 }
 
+local win_opts = {
+  winfixwidth = true,
+  winfixheight = true,
+  cursorline = true,
+  wrap = false,
+  signcolumn = 'no',
+  foldenable = false,
+  winhighlight = table.concat(winhl, ','),
+}
+
+local buf_opts = {
+  bufhidden = 'wipe',
+  buftype = 'nofile',
+  swapfile = false,
+  buflisted = false,
+  filetype = 'Glance',
+}
+
+local function find_location_position(items, location)
+  return utils.tbl_find(items, function(item)
+    return vim.deep_equal(item, location)
+  end)
+end
+
+local function find_starting_location(locations)
+  return utils.tbl_find(locations, function(location)
+    return location.is_starting
+  end)
+end
+
+local function find_starting_group_and_location(groups, position_params)
+  local fallback = nil
+  for _, group in pairs(groups) do
+    local starting_location = find_starting_location(group.items)
+
+    if starting_location then
+      return group, starting_location
+    end
+
+    if not fallback and position_params.textDocument.uri == group.uri then
+      fallback = { group = group, location = group.items[1] }
+    end
+  end
+
+  if fallback then
+    return fallback.group, fallback.location
+  end
+
+  -- if nothing was found return the first group and location
+  local _, group = next(groups)
+  return group, group.items[1]
+end
+
+local function is_starting_location(position_params, location_uri, location_range)
+  if location_uri ~= position_params.textDocument.uri then
+    return false
+  end
+
+  local range = Range:new(
+    location_range.start.line,
+    location_range.start.character,
+    location_range.finish.line,
+    location_range.finish.character
+  )
+
+  return range:contains_position({
+    line = position_params.position.line,
+    col = position_params.position.character,
+  })
+end
+
+local function get_preview_line(range, offset, text)
+  local word = utils.get_word_until_position(range.start_col - offset, text)
+
+  if range.end_line > range.start_line then
+    range.end_col = string.len(text) + 1
+  end
+
+  local before = utils.get_value_in_range(word.start_col, range.start_col, text):gsub('^%s+', '')
+  local inside = utils.get_value_in_range(range.start_col, range.end_col, text)
+  local after = utils.get_value_in_range(range.end_col, string.len(text) + 1, text):gsub('%s+$', '')
+
+  return {
+    value = {
+      before = before,
+      inside = inside,
+      after = after,
+    },
+  }
+end
+
 ---@private
+--- from: https://github.com/neovim/neovim/blob/master/runtime/lua/vim/lsp/util.lua
 --- Gets the zero-indexed lines from the given buffer.
 --- Works on unloaded buffers by reading the file using libuv to bypass buf reading events.
 --- Falls back to loading the buffer and nvim_buf_get_lines for buffers with non-file URI.
 ---
----@param bufnr integer bufnr to get the lines from
----@param rows integer[] zero-indexed line numbers
----@return table<integer, string> a table mapping rows to lines
-local function get_lines(bufnr, rows)
+---@param bufnr number bufnr to get the lines from
+---@param rows number[] zero-indexed line numbers
+---@return table<number, string> | nil a table mapping rows to lines
+local function get_lines(bufnr, uri, rows)
   rows = type(rows) == 'table' and rows or { rows }
 
   -- This is needed for bufload and bufloaded
   if bufnr == 0 then
-    bufnr = api.nvim_get_current_buf()
+    bufnr = vim.api.nvim_get_current_buf()
   end
 
   ---@private
   local function buf_lines()
     local lines = {}
-    for _, row in ipairs(rows) do
-      lines[row] = (
-        api.nvim_buf_get_lines(bufnr, row, row + 1, false) or { '' }
-      )[1]
+    for _, row in pairs(rows) do
+      lines[row] = (vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false) or {
+        '',
+      })[1]
     end
     return lines
   end
-
-  -- use loaded buffers if available
-  if vim.fn.bufloaded(bufnr) == 1 then
-    return buf_lines()
-  end
-
-  local uri = vim.uri_from_bufnr(bufnr)
 
   -- load the buffer if this is not a file uri
   -- Custom language server protocol extensions can result in servers sending URIs with custom schemes. Plugins are able to load these via `BufReadCmd` autocmds.
@@ -63,22 +140,29 @@ local function get_lines(bufnr, rows)
     return buf_lines()
   end
 
-  local filename = api.nvim_buf_get_name(bufnr)
+  -- use loaded buffers if available
+  if vim.fn.bufloaded(bufnr) == 1 then
+    return buf_lines()
+  end
+
+  local filename = vim.api.nvim_buf_get_name(bufnr)
 
   -- get the data from the file
-  local fd = uv.fs_open(filename, 'r', 438)
+  local fd = vim.loop.fs_open(filename, 'r', 438)
+
   if not fd then
-    return ''
+    return nil
   end
-  local stat = uv.fs_fstat(fd)
-  local data = uv.fs_read(fd, stat.size, 0)
-  uv.fs_close(fd)
+
+  local stat = vim.loop.fs_fstat(fd)
+  local data = vim.loop.fs_read(fd, stat.size, 0)
+  vim.loop.fs_close(fd)
 
   local lines = {} -- rows we need to retrieve
-  local need = 0 -- keep track of how many unique rows we need
+  local rows_needed = 0 -- keep track of how many unique rows we need
   for _, row in pairs(rows) do
     if not lines[row] then
-      need = need + 1
+      rows_needed = rows_needed + 1
     end
     lines[row] = true
   end
@@ -90,7 +174,7 @@ local function get_lines(bufnr, rows)
     if lines[lnum] == true then
       lines[lnum] = line
       found = found + 1
-      if found == need then
+      if found == rows_needed then
         break
       end
     end
@@ -106,7 +190,6 @@ local function get_lines(bufnr, rows)
   return lines
 end
 
----@private
 local function sort_by_key(fn)
   return function(a, b)
     local ka, kb = fn(a), fn(b)
@@ -125,24 +208,9 @@ local position_sort = sort_by_key(function(v)
   return { v.start.line, v.start.character }
 end)
 
---- Returns the items with the byte position calculated correctly and in sorted
---- order, for display in quickfix and location lists.
----
---- The result can be passed to the {list} argument of |setqflist()| or
---- |setloclist()|.
----
----@param locations table list of `Location`s or `LocationLink`s
----@param offset_encoding string offset_encoding for locations utf-8|utf-16|utf-32
----@returns (table) list of items
-function M.locations_to_items(locations, offset_encoding) -- from nvim
-  if offset_encoding == nil then
-    vim.notify_once(
-      'locations_to_items must be called with valid offset encoding',
-      vim.log.levels.WARN
-    )
-  end
+function M.procrss_locations(locations, position_params, offset_encoding)
+  local result = {}
 
-  local items = {}
   local grouped = setmetatable({}, {
     __index = function(t, k)
       local v = {}
@@ -150,72 +218,87 @@ function M.locations_to_items(locations, offset_encoding) -- from nvim
       return v
     end,
   })
-  for _, d in ipairs(locations) do
-    -- locations may be Location or LocationLink
-    local uri = d.uri or d.targetUri
-    local range = d.range or d.targetSelectionRange
-    table.insert(grouped[uri], { start = range.start })
+
+  for _, location in ipairs(locations) do
+    local uri = location.uri or location.targetUri
+    local range = location.range or location.targetSelectionRange
+    table.insert(grouped[uri], { start = range.start, finish = range['end'] })
   end
 
   local keys = vim.tbl_keys(grouped)
   table.sort(keys)
-  -- TODO(ashkan) I wish we could do this lazily.
+
   for _, uri in ipairs(keys) do
     local rows = grouped[uri]
     table.sort(rows, position_sort)
     local filename = vim.uri_to_fname(uri)
+    local bufnr = vim.uri_to_bufnr(uri)
+    result[filename] = {
+      filename = filename,
+      uri = uri,
+      items = {},
+    }
 
     -- list of row numbers
     local uri_rows = {}
-    for _, temp in ipairs(rows) do
-      local pos = temp.start
-      local row = pos.line
+
+    for _, position in ipairs(rows) do
+      local row = position.start.line
       table.insert(uri_rows, row)
     end
 
     -- get all the lines for this uri
-    local lines = get_lines(vim.uri_to_bufnr(uri), uri_rows)
+    local lines = get_lines(bufnr, uri, uri_rows)
 
-    for _, temp in ipairs(rows) do
-      local pos = temp.start
-      local row = pos.line
-      local line = lines[row] or ''
-      local col = M._str_byteindex_enc(line, pos.character, offset_encoding)
-      table.insert(items, {
+    for index, position in ipairs(rows) do
+      local preview_line
+      local is_unreachable = false
+      local start = position.start
+      local finish = position.finish
+      local start_col = start.character
+      local end_col = finish.character
+      local row = start.line
+      local line = lines and lines[row]
+
+      if not line then
+        line = ('%s:%d:%d'):format(vim.fn.fnamemodify(filename, ':t'), start_col + 1, end_col + 1)
+        is_unreachable = true
+      else
+        start_col = utils.get_line_byte_from_position(line, start, offset_encoding)
+        end_col = utils.get_line_byte_from_position(line, finish, offset_encoding)
+
+        preview_line = get_preview_line({
+          start_line = row,
+          start_col = start_col,
+          end_col = end_col,
+          end_line = finish.line,
+        }, 8, line)
+      end
+
+      local location = {
         filename = filename,
-        lnum = row + 1,
-        col = col + 1,
-        text = line,
-      })
+        bufnr = bufnr,
+        index = index,
+        uri = uri,
+        preview_line = preview_line,
+        is_unreachable = is_unreachable,
+        full_text = line or '',
+        start_line = start.line,
+        end_line = finish.line,
+        start_col = start_col,
+        end_col = end_col,
+        is_starting = is_starting_location(position_params, uri, { start = start, finish = finish }),
+      }
+
+      table.insert(result[filename].items, location)
     end
   end
-  return items
+
+  return result
 end
 
---- Convert UTF index to `encoding` index.
---- Convenience wrapper around vim.str_byteindex
----Alternative to vim.str_byteindex that takes an encoding.
----@param line string line to be indexed
----@param index integer UTF index
----@param encoding string utf-8|utf-16|utf-32|nil defaults to utf-16
----@return integer byte (utf-8) index of `encoding` index `index` in `line`
-function M._str_byteindex_enc(line, index, encoding)
-  if not encoding then
-    encoding = 'utf-16'
-  end
-  if encoding == 'utf-8' then
-    if index then
-      return index
-    else
-      return #line
-    end
-  elseif encoding == 'utf-16' then
-    return vim.str_byteindex(line, index, true)
-  elseif encoding == 'utf-32' then
-    return vim.str_byteindex(line, index)
-  else
-    error('Invalid encoding: ' .. vim.inspect(encoding))
-  end
+local function get_lsp_method_label(method_name)
+  return utils.capitalize(lsp.methods[method_name].label)
 end
 
 return M
