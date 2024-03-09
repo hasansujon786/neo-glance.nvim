@@ -1,17 +1,17 @@
-local Config = require('peep.config')
-local Ui = require('peep.ui')
-local Lsp = require('peep.lsp')
+local Config = require('neo_glance.config')
+local Lsp = require('neo_glance.lsp')
+local Ui = require('neo_glance.ui')
 
----@class Peep
----@field config PeepConfig
----@field ui PeepUI
+---@class NeoGlance
+---@field config NeoGlanceConfig
+---@field ui NeoGlanceUI
 ---@field lsp Lsp
 ---@field hooks_setup boolean
-local Peep = {}
-Peep.__index = Peep
+local NeoGlance = {}
+NeoGlance.__index = NeoGlance
 
----@return Peep
-function Peep:new()
+---@return NeoGlance
+function NeoGlance:new()
   local config = Config.get_default_config()
 
   local ui = Ui:new(config.settings)
@@ -24,14 +24,14 @@ function Peep:new()
   }, self)
 end
 
-local _peep = Peep:new()
+local _neo_glance = NeoGlance:new()
 
----Peep setup
----@param new_config? PeepUserConfig
----@return Peep
-function Peep:setup(new_config)
-  if self ~= _peep then
-    self = _peep
+---NeoGlance setup
+---@param new_config? NeoGlanceUserConfig
+---@return NeoGlance
+function NeoGlance:setup(new_config)
+  if self ~= _neo_glance then
+    self = _neo_glance
   end
 
   if new_config ~= nil then
@@ -45,9 +45,9 @@ end
 
 -- 'textDocument/definition',
 ---@param method? string
-function Peep:open(method)
+function NeoGlance:open(method)
   method = method or 'textDocument/references'
   self.lsp:references(method)
 end
 
-return _peep
+return _neo_glance

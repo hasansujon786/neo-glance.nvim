@@ -1,8 +1,8 @@
 local M = {}
 
----@return PeepConfig
+---@return NeoGlanceConfig
 function M.get_default_config()
-  ---@type PeepConfig
+  ---@type NeoGlanceConfig
   local config = {
     settings = {
       preview = {
@@ -19,7 +19,7 @@ function M.get_default_config()
         },
       },
       list = {
-        enter = false,
+        enter = true,
         focusable = true,
         border = { style = 'single' },
         buf_options = {
@@ -36,9 +36,9 @@ function M.get_default_config()
   return config
 end
 
----@param user_config PeepUserConfig
----@param config PeepConfig
----@return PeepConfig
+---@param user_config NeoGlanceUserConfig
+---@param config NeoGlanceConfig
+---@return NeoGlanceConfig
 function M.merge_config(user_config, config)
   user_config = user_config or {}
   local _config = config or M.get_default_config()

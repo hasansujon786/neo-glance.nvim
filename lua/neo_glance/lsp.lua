@@ -1,8 +1,8 @@
-local util = require('peep.util')
-local util_lsp = require('peep.util.lsp')
+local util = require('neo_glance.util')
+local util_lsp = require('neo_glance.util.lsp')
 
 ---@class Lsp
----@field ui PeepUI
+---@field ui NeoGlanceUI
 local Lsp = {}
 Lsp.__index = Lsp
 
@@ -46,7 +46,7 @@ function Lsp:handle_lsp_results(result, params, offset_encoding)
   self.ui:render(renderOpts, util.create_tree_nodes_from_locations)
 end
 
----@param ui PeepUI
+---@param ui NeoGlanceUI
 function Lsp:configure(ui)
   self.ui = ui
 end

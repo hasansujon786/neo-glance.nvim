@@ -3,12 +3,12 @@
 ---@field list_opts? nui_popup_options
 ---@field locations table
 
----@class PeepUiSettings
+---@class NeoGlanceUiSettings
 ---@field preview nui_popup_options
 ---@field list nui_popup_options
 
----@class PeepConfig
----@field settings PeepUiSettings
+---@class NeoGlanceConfig
+---@field settings NeoGlanceUiSettings
 
----@class PeepUserConfig
----@field settings? PeepUiSettings
+---@class NeoGlanceUserConfig
+---@field settings? NeoGlanceUiSettings

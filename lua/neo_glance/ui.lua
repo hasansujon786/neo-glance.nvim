@@ -9,19 +9,19 @@ local event = require('nui.utils.autocmd').event
 local NuiLine = require('nui.line')
 
 local async = require('plenary.async')
-local util = require('peep.util')
+local util = require('neo_glance.util')
 local anchor = { 'NW', 'NE', 'SW', 'SE' }
 
----@class PeepUI
+---@class NeoGlanceUI
 -----@field win_id number
 -----@field bufnr number
----@field settings PeepUiSettings
+---@field settings NeoGlanceUiSettings
 local Ui = {}
 Ui.__index = Ui
 
 local map_opt = { noremap = true, nowait = true }
 
----@param settings PeepUiSettings
+---@param settings NeoGlanceUiSettings
 function Ui:new(settings)
   return setmetatable({
     -- win_id = nil,
@@ -53,29 +53,32 @@ function Ui:render(opts, node_extractor)
   )
 
   layout:mount()
-  self:render_list(list_pop, opts, node_extractor)
 
-  local exit_win = function()
+  local exit = function()
     layout:unmount()
   end
 
-  preview_pop:on(event.WinClosed, exit_win, { once = true })
-  list_pop:on(event.WinClosed, exit_win, { once = true })
+  preview_pop:on(event.WinClosed, exit, { once = true })
+  list_pop:on(event.WinClosed, exit, { once = true })
 
-  list_pop:map('n', '<C-c>', exit_win, map_opt)
-  list_pop:map('n', 'q', exit_win, map_opt)
-  list_pop:map('n', 'p', exit_win, map_opt)
+  list_pop:map('n', '<C-c>', exit, map_opt)
+  list_pop:map('n', 'q', exit, map_opt)
+  list_pop:map('n', 'p', exit, map_opt)
+
+  local nodes, first_child = node_extractor(opts.locations)
+  self:render_list(list_pop, opts, nodes)
+  preview_pop:update_layout()
 end
 
 ---comment
 ---@param list_pop NuiPopup
 ---@param opts UiRenderOpts
----@param node_extractor fun(locations)
-function Ui:render_list(list_pop, opts, node_extractor)
+---@param nodes table
+function Ui:render_list(list_pop, opts, nodes)
   local tree = NuiTree({
     bufnr = list_pop.bufnr,
     -- winid = split.winid,
-    nodes = node_extractor(opts.locations),
+    nodes = nodes,
     prepare_node = function(node)
       local line = NuiLine()
 
@@ -96,10 +99,6 @@ function Ui:render_list(list_pop, opts, node_extractor)
   self:add_list_maps(list_pop, tree)
   tree:render()
   -- list_pop:mount()
-
-  vim.defer_fn(function()
-    vim.api.nvim_set_current_win(list_pop.winid)
-  end, 1)
 end
 
 ---@param list_pop NuiPopup
@@ -181,9 +180,9 @@ function Ui:add_list_maps(list_pop, tree)
 end
 
 -- Win:render_preview({})
--- require('peep.lsp').references()
+-- require('neo_glance.lsp').references()
 
----@param settings PeepUiSettings
+---@param settings NeoGlanceUiSettings
 function Ui:configure(settings)
   self.settings = settings
 end
