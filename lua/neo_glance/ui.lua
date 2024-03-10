@@ -1,13 +1,14 @@
 local Input = require('nui.input')
 local Layout = require('nui.layout')
 local Menu = require('nui.menu')
+local NuiLine = require('nui.line')
 local NuiTree = require('nui.tree')
 local Popup = require('nui.popup')
 local Text = require('nui.text')
+local _g_util = require('_glance.utils')
+
+local api = vim.api
 local event = require('nui.utils.autocmd').event
-
-local NuiLine = require('nui.line')
-
 local async = require('plenary.async')
 local util = require('neo_glance.util')
 local anchor = { 'NW', 'NE', 'SW', 'SE' }
@@ -32,51 +33,44 @@ function Ui:new(settings)
 end
 
 ---@param opts UiRenderOpts
----@param node_extractor fun(locations)
+---@param node_extractor NeoGlanceNodeExtractor
 function Ui:render(opts, node_extractor)
-  local preview_conf = util.merge(self.settings.preview, opts.preview_opts or {})
   local list_conf = util.merge(self.settings.list, opts.list_opts or {})
+  local preview_conf = util.merge(self.settings.preview, opts.preview_opts or {})
 
-  local list_pop = Popup(list_conf)
-  local preview_pop = Popup(preview_conf)
+  self.list_pop = Popup(list_conf)
+  self.preview_pop = Popup(preview_conf)
 
-  local layout = Layout(
+  self.layout = Layout(
     {
       relative = 'win',
       position = { col = 0, row = 1 },
       size = { width = '100%', height = 20 },
     },
     Layout.Box({
-      Layout.Box(preview_pop, { grow = 1 }),
-      Layout.Box(list_pop, { size = { width = 50 } }),
+      Layout.Box(self.preview_pop, { grow = 1 }),
+      Layout.Box(self.list_pop, { size = { width = 50 } }),
     }, { dir = 'row' })
   )
 
-  layout:mount()
-
-  local exit = function()
-    layout:unmount()
+  self.layout:mount()
+  local exit_layout = function()
+    self.layout:unmount()
   end
-
-  preview_pop:on(event.WinClosed, exit, { once = true })
-  list_pop:on(event.WinClosed, exit, { once = true })
-
-  list_pop:map('n', '<C-c>', exit, map_opt)
-  list_pop:map('n', 'q', exit, map_opt)
-  list_pop:map('n', 'p', exit, map_opt)
+  self.preview_pop:on(event.WinClosed, exit_layout, { once = true })
+  self.list_pop:on(event.WinClosed, exit_layout, { once = true })
 
   local nodes, first_child = node_extractor(opts.locations)
-  self:render_list(list_pop, opts, nodes)
-  preview_pop:update_layout()
+  self:render_list(nodes, opts)
+
+  self:update_preview(first_child, true)
 end
 
----comment
----@param list_pop NuiPopup
----@param opts UiRenderOpts
 ---@param nodes table
-function Ui:render_list(list_pop, opts, nodes)
+---@param opts UiRenderOpts
+function Ui:render_list(nodes, opts)
   local tree = NuiTree({
-    bufnr = list_pop.bufnr,
+    bufnr = self.list_pop.bufnr,
     -- winid = split.winid,
     nodes = nodes,
     prepare_node = function(node)
@@ -96,23 +90,63 @@ function Ui:render_list(list_pop, opts, nodes)
     end,
   })
 
-  self:add_list_maps(list_pop, tree)
   tree:render()
-  -- list_pop:mount()
+  self:setup_list_keymaps(tree)
+
+  vim.defer_fn(function()
+    api.nvim_set_current_win(self.list_pop.winid)
+  end, 50)
 end
 
----@param list_pop NuiPopup
 ---@param tree NuiTree
-function Ui:add_list_maps(list_pop, tree)
+function Ui:setup_list_keymaps(tree)
+  local list_pop = self.list_pop
+  local preview_winid = self.preview_pop.winid
+
+  -- focus preview
+  list_pop:map('n', '<leader>h', function()
+    api.nvim_set_current_win(self.preview_pop.winid)
+  end, map_opt)
+
   -- quit
   list_pop:map('n', 'q', function()
     list_pop:unmount()
-  end, { noremap = true })
+  end, map_opt)
+
+  list_pop:map('n', 'o', function()
+    local node = tree:get_node()
+    if not node or not node.data then
+      return
+    end
+    local locations = node.data
+
+    -- TODO: get parent winid
+    api.nvim_set_current_win(preview_winid)
+    api.nvim_win_set_cursor(preview_winid, { locations.start_line + 1, locations.start_col })
+    api.nvim_win_call(preview_winid, function()
+      vim.cmd('norm! zv')
+      vim.cmd('norm! zz')
+    end)
+
+    P('xxxxxxx ' .. math.random())
+  end, map_opt)
+
+  --------------------------------------------------
+  -- NuiTree mappings ------------------------------
+  --------------------------------------------------
+
+  -- previw next item
+  list_pop:map('n', '<tab>', function()
+    local node = tree:get_node()
+    self:update_preview(node.data)
+    -- P(node.data)
+  end, map_opt)
 
   -- print current node
   list_pop:map('n', '<CR>', function()
     local node = tree:get_node()
-    print(vim.inspect(node))
+    _G.foo = node
+    -- print(vim.inspect(node))
   end, map_opt)
 
   -- collapse current node
@@ -179,8 +213,89 @@ function Ui:add_list_maps(list_pop, tree)
   end, map_opt)
 end
 
--- Win:render_preview({})
--- require('neo_glance.lsp').references()
+---@param location_item NeoGlanceLocationItem
+function Ui:setup_preview_keymaps(location_item)
+  local list_winid = self.list_pop.winid
+  local preview_winid = self.preview_pop.winid
+
+  local preview_keymaps = {
+    ['<leader>l'] = function()
+      api.nvim_set_current_win(list_winid)
+    end,
+  }
+
+  local keymap_opts = {
+    buffer = location_item.bufnr,
+    noremap = true,
+    nowait = true,
+    silent = true,
+  }
+
+  for key, action in pairs(preview_keymaps) do
+    vim.keymap.set('n', key, action, keymap_opts)
+  end
+
+  return preview_keymaps
+end
+
+---@param location_item NeoGlanceLocationItem
+---@param initial? boolean
+function Ui:update_preview(location_item, initial)
+  if self.current_location ~= nil and vim.deep_equal(self.current_location, location_item) then
+    P('same item ' .. math.random())
+    return
+  end
+  initial = initial or false
+  local winid = self.preview_pop.winid
+
+  api.nvim_win_set_buf(winid, location_item.bufnr)
+  api.nvim_win_set_cursor(winid, { location_item.start_line + 1, location_item.start_col })
+  api.nvim_win_call(winid, function()
+    vim.cmd('norm! zv')
+    vim.cmd('norm! zz')
+  end)
+
+  if not initial and self.current_location ~= nil and self.current_location.bufnr == location_item.bufnr then
+    self.current_location = location_item
+    P('different place in same buffer ' .. math.random())
+    return
+  end
+  self.current_location = location_item
+  P('new item ' .. math.random())
+
+  _g_util.win_set_options(winid, self.settings.preview.win_options)
+  local preview_keymaps = self:setup_preview_keymaps(location_item)
+
+  local augroup = api.nvim_create_augroup('neo-glance-preview', { clear = true })
+  local autocmd_id
+  autocmd_id = api.nvim_create_autocmd({ event.WinClosed }, {
+    group = augroup,
+    buffer = location_item.bufnr,
+    callback = function()
+      self:on_detach_preview_buffer(location_item.bufnr, preview_keymaps)
+    end,
+  })
+  self.clear_preview_autocmd = function()
+    pcall(api.nvim_del_autocmd, autocmd_id)
+    -- if on_change_timer then
+    --   on_change_timer:close()
+    --   on_change_timer = nil
+    -- end
+  end
+end
+
+function Ui:on_detach_preview_buffer(bufnr, preview_keymaps)
+  if type(self.clear_autocmd) == 'function' then
+    self.clear_autocmd()
+    self.clear_autocmd = nil
+  end
+
+  if bufnr ~= nil and api.nvim_buf_is_valid(bufnr) then
+    for lhs, _ in pairs(preview_keymaps) do
+      pcall(api.nvim_buf_del_keymap, bufnr, 'n', lhs)
+    end
+  end
+end
 
 ---@param settings NeoGlanceUiSettings
 function Ui:configure(settings)

@@ -8,6 +8,7 @@ M.merge = function(...)
   return vim.tbl_deep_extend('force', ...)
 end
 
+---@type NeoGlanceNodeExtractor
 function M.create_tree_nodes_from_locations(locations)
   local nodes = {}
   local first_node_child = nil

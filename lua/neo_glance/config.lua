@@ -15,11 +15,15 @@ function M.get_default_config()
         },
         win_options = {
           winhighlight = 'Normal:Normal,FloatBorder:FloatBorder',
+          cursorline = true,
+          relativenumber = true,
+          signcolumn = 'no', -- TODO: make sure my statuscolumn works
+          number = true,
           winbar = '',
         },
       },
       list = {
-        enter = true,
+        enter = false,
         focusable = true,
         border = { style = 'single' },
         buf_options = {
@@ -28,6 +32,7 @@ function M.get_default_config()
         },
         win_options = {
           winhighlight = 'Normal:Normal,FloatBorder:FloatBorder',
+          cursorline = true,
         },
       },
     },
