@@ -5,6 +5,8 @@ local NuiLine = require('nui.line')
 local NuiTree = require('nui.tree')
 local Popup = require('nui.popup')
 local Text = require('nui.text')
+
+local List = require('neo_glance.ui.list')
 local _g_util = require('_glance.utils')
 
 local api = vim.api
@@ -102,6 +104,7 @@ end
 function Ui:setup_list_keymaps(tree)
   local list_pop = self.list_pop
   local preview_winid = self.preview_pop.winid
+  local list = List:new({ winid = list_pop.winid })
 
   -- focus preview
   list_pop:map('n', '<leader>h', function()
@@ -112,6 +115,88 @@ function Ui:setup_list_keymaps(tree)
   list_pop:map('n', 'q', function()
     list_pop:unmount()
   end, map_opt)
+
+  ---@param opts {start:number,cycle?:boolean,backwards?:boolean}
+  local function move(opts)
+    local start_node = tree:get_node(opts.start)
+    local line_count = vim.api.nvim_buf_line_count(self.list_pop.bufnr)
+    local new_linenr = opts.start + (opts.backwards and -1 or 1)
+    local new_colnr = list:get_col()
+
+    -- Handle cycle or out of range
+    if not opts.backwards and new_linenr > line_count then
+      if opts.cycle then
+        new_linenr = 1
+      else
+        return
+      end
+    elseif opts.backwards and new_linenr < 1 then
+      if opts.cycle then
+        new_linenr = line_count
+      else
+        return
+      end
+    end
+
+    local node, linenr = tree:get_node(new_linenr)
+    if not node then
+      return
+    end
+
+    -- Fixup cursor col position
+    if start_node and new_colnr > 0 then
+      if start_node:has_children() and not node:has_children() then
+        new_colnr = new_colnr - 2
+      elseif not start_node:has_children() and node:has_children() then
+        new_colnr = new_colnr + 2
+      end
+    end
+
+    vim.api.nvim_win_set_cursor(list.winid, { linenr, new_colnr })
+    if node:has_children() then
+      return -- don't update preview if it is a group
+    end
+    self:update_preview(node.data)
+  end
+
+  list_pop:map('n', 'j', function()
+    move({ start = list:get_line() })
+  end, map_opt)
+  list_pop:map('n', 'k', function()
+    move({ backwards = true, start = list:get_line() })
+  end, map_opt)
+
+  ---@param opts { next: boolean }
+  ---@return function
+  local function move_location(opts)
+    return function()
+      local dir = opts.next and 'norm! j' or 'norm! k'
+      vim.cmd(dir)
+      local node = tree:get_node()
+      if not node then
+        return
+      end
+
+      if node:has_children() then
+        if node:is_expanded() == false and node:expand() then
+          tree:render()
+        end
+        if node:is_expanded() then
+          if not opts.next then
+            -- this node is previous locations and expanded
+            P('prev ' .. math.random())
+          else
+            move(dir)()
+          end
+          -- move_location(opts)
+        end
+      elseif node.data or node.data.bufnr ~= nil then
+        self:update_preview(node.data)
+      end
+    end
+  end
+  list_pop:map('n', '<tab>', move_location({ next = true }), map_opt)
+  list_pop:map('n', '<s-tab>', move_location({ next = false }), map_opt)
 
   list_pop:map('n', 'o', function()
     local node = tree:get_node()
@@ -134,13 +219,6 @@ function Ui:setup_list_keymaps(tree)
   --------------------------------------------------
   -- NuiTree mappings ------------------------------
   --------------------------------------------------
-
-  -- previw next item
-  list_pop:map('n', '<tab>', function()
-    local node = tree:get_node()
-    self:update_preview(node.data)
-    -- P(node.data)
-  end, map_opt)
 
   -- print current node
   list_pop:map('n', '<CR>', function()

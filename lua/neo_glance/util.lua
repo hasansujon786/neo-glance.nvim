@@ -28,10 +28,28 @@ function M.create_tree_nodes_from_locations(locations)
         NuiText(v.inside, 'GlanceListMatch'),
         NuiText(v.after),
       })
-      table.insert(child_nodes, NuiTree.Node({ id = 'child-' .. tostring(i) .. uri, text = line, data = child_data }))
+
+      table.insert(
+        child_nodes,
+        NuiTree.Node({
+          id = 'child-' .. tostring(i) .. uri,
+          text = line,
+          data = child_data,
+        })
+      )
     end
 
-    table.insert(nodes, NuiTree.Node({ id = 'parent-' .. uri, text = parent_data.filename }, child_nodes))
+    table.insert(
+      nodes,
+      NuiTree.Node({
+        id = 'group-' .. uri,
+        text = parent_data.filename,
+        data = {
+          uri = parent_data.uri,
+          filename = parent_data.filename,
+        },
+      }, child_nodes)
+    )
   end
   return nodes, first_node_child
 end

@@ -234,6 +234,7 @@ function M.procrss_locations(locations, position_params, offset_encoding)
     local filename = vim.uri_to_fname(uri)
     local bufnr = vim.uri_to_bufnr(uri)
     result[filename] = {
+      is_group = true,
       filename = filename,
       uri = uri,
       items = {},
@@ -276,6 +277,7 @@ function M.procrss_locations(locations, position_params, offset_encoding)
       end
 
       local location = {
+        is_group_item = true,
         filename = filename,
         bufnr = bufnr,
         index = index,

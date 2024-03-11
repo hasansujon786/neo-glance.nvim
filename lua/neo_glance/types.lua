@@ -17,6 +17,7 @@
 ---@field items NeoGlanceLocationItem[]
 ---@field filename string
 ---@field uri string
+---@field is_group boolean
 
 ---@class NeoGlanceLocationItem
 ---@field bufnr  number
@@ -27,6 +28,7 @@
 ---@field index  number
 ---@field is_starting boolean
 ---@field is_unreachable boolean
+---@field is_group_item boolean
 ---@field start_col  number
 ---@field start_line  number
 ---@field uri string
