@@ -68,57 +68,42 @@ end
 function List:previous(opts)
   opts = opts or {}
   local start = self:get_line()
-  local idx, node = self:walk({
-    start = start + (opts.offset or 0),
-    cycle = opts.cycle,
-    backwards = true,
-  })
-  -- 1.OK Close group to Close group => item count
-  -- 2.OK opent group child to open group child => -1
-  if not node or not idx then
-    return nil
+  local search_from = start - 2
+
+  local target_node = nil
+  local target_idx = 0
+
+  if opts.cycle and search_from <= 0 then
+    search_from = vim.api.nvim_buf_line_count(self.bufnr)
   end
 
-  if opts.skip_groups and node.data.is_group then
-    if not node:is_expanded() and node:expand() then
-      P('updated')
-      self.tree:render()
-      return self:previous({
-        offset = #node:get_child_ids(),
-        cycle = opts.cycle,
-        skip_groups = true,
-      })
+  for i = 0, search_from, 1 do
+    local idx, node = self:walk({
+      start = start - i,
+      cycle = opts.cycle,
+      backwards = true,
+    })
+    if not node or not idx then
+      return nil
+    end
+
+    if opts.skip_groups and node.data.is_group then
+      if not node:is_expanded() and node:expand() then
+        self.tree:render()
+        target_idx = #node:get_child_ids() + idx
+        target_node = self.tree:get_node(target_idx)
+        break
+      end
     else
-      local new_node = self.tree:get_node(idx - 1)
-      if not new_node then
-        return
-      end
-
-      if new_node.data.is_group_item then
-        return self:previous({
-          offset = -1,
-          cycle = opts.cycle,
-          skip_groups = true,
-        })
-      end
-
-      if new_node.data.is_group then
-        if not new_node:is_expanded() and new_node:expand() then
-          -- P(tostring(idx - 1) .. '  ' .. tostring(idx))
-          P('updated 2nd')
-          self.tree:render()
-          return self:previous({
-            offset = #new_node:get_child_ids() - 1,
-            cycle = opts.cycle,
-            skip_groups = true,
-          })
-        end
-      end
+      target_node = node
+      target_idx = idx
+      break
     end
   end
-  if not (opts.skip_groups and node.data.is_group) then
-    vim.api.nvim_win_set_cursor(self.winid, { idx, self:get_col() })
-    return node
+
+  if target_node and target_idx > 0 and not (opts.skip_groups and target_node.data.is_group) then
+    vim.api.nvim_win_set_cursor(self.winid, { target_idx, self:get_col() })
+    return target_node
   end
   return nil
 end

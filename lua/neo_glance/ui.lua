@@ -81,6 +81,7 @@ function Ui:render_list(nodes, opts)
       line:append(string.rep('  ', node:get_depth() - 1))
 
       if node:has_children() then
+        -- TODO: fix cursor col position while navigating
         line:append(node:is_expanded() and ' ' or ' ', 'SpecialChar')
       else
         line:append('  ')
@@ -149,16 +150,16 @@ function Ui:setup_list_keymaps(tree)
   end
 
   list_pop:map('n', 'j', function()
-    local node = list:next()
+    local node = list:next({ cycle = false })
     if node then
       self:update_preview(node.data)
     end
   end, map_opt)
   list_pop:map('n', 'k', function()
-    local node = list:previous()
-    -- if node then
-    --   self:update_preview(node.data)
-    -- end
+    local node = list:previous({ cycle = false })
+    if node then
+      self:update_preview(node.data)
+    end
   end, map_opt)
 
   list_pop:map('n', '<tab>', function()
@@ -170,9 +171,9 @@ function Ui:setup_list_keymaps(tree)
 
   list_pop:map('n', '<s-tab>', function()
     local node = list:previous({ cycle = true, skip_groups = true })
-    -- if node then
-    --   self:update_preview(node.data)
-    -- end
+    if node then
+      self:update_preview(node.data)
+    end
   end, map_opt)
 
   list_pop:map('n', 'o', function()
@@ -189,8 +190,6 @@ function Ui:setup_list_keymaps(tree)
       vim.cmd('norm! zv')
       vim.cmd('norm! zz')
     end)
-
-    P('xxxxxxx ' .. math.random())
   end, map_opt)
 
   --------------------------------------------------
@@ -300,7 +299,6 @@ function Ui:update_preview(location_item, initial)
     return nil
   end
   if self.current_location ~= nil and vim.deep_equal(self.current_location, location_item) then
-    P('same item ' .. math.random())
     return
   end
   initial = initial or false
@@ -314,12 +312,10 @@ function Ui:update_preview(location_item, initial)
   end)
 
   if not initial and self.current_location ~= nil and self.current_location.bufnr == location_item.bufnr then
-    self.current_location = location_item
-    P('different place in same buffer ' .. math.random())
+    self.current_location = location_item -- exit if buffer but update cursor
     return
   end
-  self.current_location = location_item
-  P('new item ' .. math.random())
+  self.current_location = location_item -- got a new item
 
   _g_util.win_set_options(winid, self.settings.preview.win_options)
   local preview_keymaps = self:setup_preview_keymaps(location_item)
