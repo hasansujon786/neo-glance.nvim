@@ -1,14 +1,14 @@
 ---@class NeoGlanceUiList
 ---@field winid number
+---@field bufnr number
+---@field tree NuiTree
 
 local List = {}
 List.__index = List
 
 ---@param initial_opts NeoGlanceUiList
 function List:new(initial_opts)
-  return setmetatable({
-    winid = initial_opts.winid,
-  }, self)
+  return setmetatable(initial_opts, self)
 end
 
 function List:get_cursor()
@@ -23,9 +23,111 @@ function List:get_col()
   return self:get_cursor()[2]
 end
 
+---@param opts { start: integer, backwards?: boolean, cycle?: boolean }
+function List:walk(opts)
+  local line_count = vim.api.nvim_buf_line_count(self.bufnr)
+  local idx = opts.start + (opts.backwards and -1 or 1)
+  if opts.cycle then
+    idx = ((idx - 1) % line_count) + 1
+  end
+  local item = self.tree:get_node(idx)
+  if not item or idx > line_count then
+    return nil
+  end
+  return idx, item
+end
+
+---@param opts? { skip_groups: boolean, offset: number, cycle: boolean }
+function List:next(opts)
+  opts = opts or {}
+  local idx, node = self:walk({
+    start = self:get_line() + (opts.offset or 0),
+    cycle = opts.cycle,
+  })
+  if not node then
+    return nil
+  end
+  if opts.skip_groups and node.data.is_group then
+    if not node:is_expanded() and node:expand() then
+      self.tree:render()
+    end
+    return self:next({
+      offset = idx - self:get_line(), -- offset by how far we've already iterated prior to unfolding
+      cycle = opts.cycle,
+      skip_groups = true,
+    })
+  end
+  if not (opts.skip_groups and node.data.is_group) then
+    vim.api.nvim_win_set_cursor(self.winid, { idx, self:get_col() })
+    return node
+  end
+  return nil
+end
+
+---@param opts? { skip_groups: boolean, offset: number, cycle: boolean }
+function List:previous(opts)
+  opts = opts or {}
+  local start = self:get_line()
+  local idx, node = self:walk({
+    start = start + (opts.offset or 0),
+    cycle = opts.cycle,
+    backwards = true,
+  })
+  -- 1.OK Close group to Close group => item count
+  -- 2.OK opent group child to open group child => -1
+  if not node or not idx then
+    return nil
+  end
+
+  if opts.skip_groups and node.data.is_group then
+    if not node:is_expanded() and node:expand() then
+      P('updated')
+      self.tree:render()
+      return self:previous({
+        offset = #node:get_child_ids(),
+        cycle = opts.cycle,
+        skip_groups = true,
+      })
+    else
+      local new_node = self.tree:get_node(idx - 1)
+      if not new_node then
+        return
+      end
+
+      if new_node.data.is_group_item then
+        return self:previous({
+          offset = -1,
+          cycle = opts.cycle,
+          skip_groups = true,
+        })
+      end
+
+      if new_node.data.is_group then
+        if not new_node:is_expanded() and new_node:expand() then
+          -- P(tostring(idx - 1) .. '  ' .. tostring(idx))
+          P('updated 2nd')
+          self.tree:render()
+          return self:previous({
+            offset = #new_node:get_child_ids() - 1,
+            cycle = opts.cycle,
+            skip_groups = true,
+          })
+        end
+      end
+    end
+  end
+  if not (opts.skip_groups and node.data.is_group) then
+    vim.api.nvim_win_set_cursor(self.winid, { idx, self:get_col() })
+    return node
+  end
+  return nil
+end
+
 ---@param opts NeoGlanceUiList
 function List:configure(opts)
   self.winid = opts.winid
+  self.bufnr = opts.bufnr
+  self.tree = opts.tree
 end
 
 return List

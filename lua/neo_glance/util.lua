@@ -47,6 +47,7 @@ function M.create_tree_nodes_from_locations(locations)
         data = {
           uri = parent_data.uri,
           filename = parent_data.filename,
+          is_group = parent_data.is_group,
         },
       }, child_nodes)
     )

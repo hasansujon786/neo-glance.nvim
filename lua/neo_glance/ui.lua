@@ -104,7 +104,7 @@ end
 function Ui:setup_list_keymaps(tree)
   local list_pop = self.list_pop
   local preview_winid = self.preview_pop.winid
-  local list = List:new({ winid = list_pop.winid })
+  local list = List:new({ winid = list_pop.winid, bufnr = list_pop.bufnr, tree = tree })
 
   -- focus preview
   list_pop:map('n', '<leader>h', function()
@@ -120,39 +120,28 @@ function Ui:setup_list_keymaps(tree)
   local function move(opts)
     local start_node = tree:get_node(opts.start)
     local line_count = vim.api.nvim_buf_line_count(self.list_pop.bufnr)
-    local new_linenr = opts.start + (opts.backwards and -1 or 1)
-    local new_colnr = list:get_col()
+    local idx = opts.start + (opts.backwards and -1 or 1)
+    local col = list:get_col()
 
-    -- Handle cycle or out of range
-    if not opts.backwards and new_linenr > line_count then
-      if opts.cycle then
-        new_linenr = 1
-      else
-        return
-      end
-    elseif opts.backwards and new_linenr < 1 then
-      if opts.cycle then
-        new_linenr = line_count
-      else
-        return
-      end
+    if opts.cycle then
+      idx = ((idx - 1) % line_count) + 1
     end
 
-    local node, linenr = tree:get_node(new_linenr)
-    if not node then
-      return
+    local node, linenr = tree:get_node(idx)
+    if not node or idx > line_count then
+      return nil
     end
 
     -- Fixup cursor col position
-    if start_node and new_colnr > 0 then
+    if start_node and col > 0 then
       if start_node:has_children() and not node:has_children() then
-        new_colnr = new_colnr - 2
+        col = col - 2
       elseif not start_node:has_children() and node:has_children() then
-        new_colnr = new_colnr + 2
+        col = col + 2
       end
     end
 
-    vim.api.nvim_win_set_cursor(list.winid, { linenr, new_colnr })
+    vim.api.nvim_win_set_cursor(list.winid, { idx, col })
     if node:has_children() then
       return -- don't update preview if it is a group
     end
@@ -160,43 +149,31 @@ function Ui:setup_list_keymaps(tree)
   end
 
   list_pop:map('n', 'j', function()
-    move({ start = list:get_line() })
+    local node = list:next()
+    if node then
+      self:update_preview(node.data)
+    end
   end, map_opt)
   list_pop:map('n', 'k', function()
-    move({ backwards = true, start = list:get_line() })
+    local node = list:previous()
+    -- if node then
+    --   self:update_preview(node.data)
+    -- end
   end, map_opt)
 
-  ---@param opts { next: boolean }
-  ---@return function
-  local function move_location(opts)
-    return function()
-      local dir = opts.next and 'norm! j' or 'norm! k'
-      vim.cmd(dir)
-      local node = tree:get_node()
-      if not node then
-        return
-      end
-
-      if node:has_children() then
-        if node:is_expanded() == false and node:expand() then
-          tree:render()
-        end
-        if node:is_expanded() then
-          if not opts.next then
-            -- this node is previous locations and expanded
-            P('prev ' .. math.random())
-          else
-            move(dir)()
-          end
-          -- move_location(opts)
-        end
-      elseif node.data or node.data.bufnr ~= nil then
-        self:update_preview(node.data)
-      end
+  list_pop:map('n', '<tab>', function()
+    local node = list:next({ cycle = true, skip_groups = true })
+    if node then
+      self:update_preview(node.data)
     end
-  end
-  list_pop:map('n', '<tab>', move_location({ next = true }), map_opt)
-  list_pop:map('n', '<s-tab>', move_location({ next = false }), map_opt)
+  end, map_opt)
+
+  list_pop:map('n', '<s-tab>', function()
+    local node = list:previous({ cycle = true, skip_groups = true })
+    -- if node then
+    --   self:update_preview(node.data)
+    -- end
+  end, map_opt)
 
   list_pop:map('n', 'o', function()
     local node = tree:get_node()
@@ -316,9 +293,12 @@ function Ui:setup_preview_keymaps(location_item)
   return preview_keymaps
 end
 
----@param location_item NeoGlanceLocationItem
+---@param location_item NeoGlanceLocationItem|nil
 ---@param initial? boolean
 function Ui:update_preview(location_item, initial)
+  if not location_item or not location_item.is_group_item then
+    return nil
+  end
   if self.current_location ~= nil and vim.deep_equal(self.current_location, location_item) then
     P('same item ' .. math.random())
     return
