@@ -9,9 +9,11 @@
 
 ---@class NeoGlanceConfig
 ---@field settings NeoGlanceUiSettings
+---@field mappings table
 
 ---@class NeoGlanceUserConfig
 ---@field settings? NeoGlanceUiSettings
+---@field mappings? table
 
 ---@class NeoGlanceLocation
 ---@field items NeoGlanceLocationItem[]

@@ -1,14 +1,27 @@
+local NuiTree = require('nui.tree')
+
+local api = vim.api
+local map_opt = { noremap = true, nowait = true }
+
 ---@class NeoGlanceUiList
 ---@field winid number
 ---@field bufnr number
 ---@field tree NuiTree
-
+---@field popup NuiPopup
+---@field preview_popup NuiPopup
 local List = {}
 List.__index = List
 
----@param initial_opts NeoGlanceUiList
-function List:new(initial_opts)
-  return setmetatable(initial_opts, self)
+---@param opts {winid:number,bufnr:number,tree:NuiTree|nil,popup:NuiPopup|nil,preview_popup:NuiPopup|nil}
+---@return NeoGlanceUiList
+function List:new(opts)
+  return setmetatable({
+    winid = opts.winid,
+    bufnr = opts.bufnr,
+    tree = opts.tree,
+    popup = opts.popup,
+    preview_popup = opts.preview_popup,
+  }, self)
 end
 
 function List:get_cursor()
@@ -30,14 +43,15 @@ function List:walk(opts)
   if opts.cycle then
     idx = ((idx - 1) % line_count) + 1
   end
-  local item = self.tree:get_node(idx)
-  if not item or idx > line_count then
+  local node = self.tree:get_node(idx)
+  if not node or idx > line_count then
     return nil
   end
-  return idx, item
+  return idx, node
 end
 
 ---@param opts? { skip_groups: boolean, offset: number, cycle: boolean }
+---@return NeoGlanceLocation|NeoGlanceLocationItem|nil, NuiTreeNode|nil
 function List:next(opts)
   opts = opts or {}
   local idx, node = self:walk({
@@ -59,12 +73,13 @@ function List:next(opts)
   end
   if not (opts.skip_groups and node.data.is_group) then
     vim.api.nvim_win_set_cursor(self.winid, { idx, self:get_col() })
-    return node
+    return node.data, node
   end
   return nil
 end
 
 ---@param opts? { skip_groups: boolean, offset: number, cycle: boolean }
+---@return NeoGlanceLocation|NeoGlanceLocationItem|nil, NuiTreeNode|nil
 function List:previous(opts)
   opts = opts or {}
   local start = self:get_line()
@@ -103,16 +118,121 @@ function List:previous(opts)
 
   if target_node and target_idx > 0 and not (opts.skip_groups and target_node.data.is_group) then
     vim.api.nvim_win_set_cursor(self.winid, { target_idx, self:get_col() })
-    return target_node
+    return target_node.data, target_node
   end
   return nil
 end
 
----@param opts NeoGlanceUiList
-function List:configure(opts)
-  self.winid = opts.winid
-  self.bufnr = opts.bufnr
-  self.tree = opts.tree
+---@param ui NeoGlanceUI
+function List:setup_list_keymaps(ui)
+  local pop = self.popup
+  local tree = self.tree
+  local preview_winid = self.preview_popup.winid
+
+  local keymap_opts = {
+    buffer = pop.bufnr,
+    noremap = true,
+    nowait = true,
+    silent = true,
+  }
+
+  for key, action in pairs(ui.mappings.list) do
+    vim.keymap.set('n', key, action, keymap_opts)
+  end
+
+  pop:map('n', 'o', function()
+    local node = tree:get_node()
+    if not node or not node.data then
+      return
+    end
+    local locations = node.data
+
+    -- TODO: get parent winid
+    api.nvim_set_current_win(preview_winid)
+    api.nvim_win_set_cursor(preview_winid, { locations.start_line + 1, locations.start_col })
+    api.nvim_win_call(preview_winid, function()
+      vim.cmd('norm! zv')
+      vim.cmd('norm! zz')
+    end)
+  end, map_opt)
+
+  vim.defer_fn(function()
+    api.nvim_set_current_win(pop.winid)
+  end, 50)
+
+  --------------------------------------------------
+  -- NuiTree mappings ------------------------------
+  --------------------------------------------------
+
+  -- print current node
+  pop:map('n', '<CR>', function()
+    local node = tree:get_node()
+    _G.foo = node
+    -- print(vim.inspect(node))
+  end, map_opt)
+
+  -- collapse current node
+  pop:map('n', 'h', function()
+    local node = tree:get_node()
+
+    if node:collapse() then
+      tree:render()
+    end
+  end, map_opt)
+
+  -- collapse all nodes
+  pop:map('n', 'H', function()
+    local updated = false
+
+    for _, node in pairs(tree.nodes.by_id) do
+      updated = node:collapse() or updated
+    end
+
+    if updated then
+      tree:render()
+    end
+  end, map_opt)
+
+  -- expand current node
+  pop:map('n', 'l', function()
+    local node = tree:get_node()
+
+    if node:expand() then
+      tree:render()
+    end
+  end, map_opt)
+
+  -- expand all nodes
+  pop:map('n', 'L', function()
+    local updated = false
+
+    for _, node in pairs(tree.nodes.by_id) do
+      updated = node:expand() or updated
+    end
+
+    if updated then
+      tree:render()
+    end
+  end, map_opt)
+
+  -- add new node under current node
+  pop:map('n', 'a', function()
+    local node = tree:get_node()
+    tree:add_node(
+      NuiTree.Node({ text = 'd' }, {
+        NuiTree.Node({ text = 'd-1' }),
+      }),
+      node:get_id()
+    )
+    tree:render()
+  end, map_opt)
+
+  -- delete current node
+  pop:map('n', 'd', function()
+    local node = tree:get_node()
+    tree:remove_node(node:get_id())
+    tree:render()
+  end, map_opt)
 end
 
 return List

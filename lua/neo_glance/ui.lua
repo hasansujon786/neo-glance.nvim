@@ -1,17 +1,14 @@
-local Input = require('nui.input')
+local Actions = require('neo_glance.actions')
 local Layout = require('nui.layout')
-local Menu = require('nui.menu')
 local NuiLine = require('nui.line')
 local NuiTree = require('nui.tree')
 local Popup = require('nui.popup')
-local Text = require('nui.text')
 
 local List = require('neo_glance.ui.list')
 local _g_util = require('_glance.utils')
 
 local api = vim.api
 local event = require('nui.utils.autocmd').event
-local async = require('plenary.async')
 local util = require('neo_glance.util')
 local anchor = { 'NW', 'NE', 'SW', 'SE' }
 
@@ -19,18 +16,17 @@ local anchor = { 'NW', 'NE', 'SW', 'SE' }
 -----@field win_id number
 -----@field bufnr number
 ---@field settings NeoGlanceUiSettings
+---@field mappings table
 local Ui = {}
 Ui.__index = Ui
 
-local map_opt = { noremap = true, nowait = true }
-
 ---@param settings NeoGlanceUiSettings
-function Ui:new(settings)
+---@param mappings table
+function Ui:new(settings, mappings)
   return setmetatable({
-    -- win_id = nil,
-    -- bufnr = nil,
-    -- active_list = nil,
+    list = List:new({ bufnr = 0, winid = 0 }),
     settings = settings,
+    mappings = mappings,
   }, self)
 end
 
@@ -94,180 +90,18 @@ function Ui:render_list(nodes, opts)
   })
 
   tree:render()
-  self:setup_list_keymaps(tree)
-
-  vim.defer_fn(function()
-    api.nvim_set_current_win(self.list_pop.winid)
-  end, 50)
+  self.list = List:new({
+    winid = self.list_pop.winid,
+    bufnr = self.list_pop.bufnr,
+    tree = tree,
+    popup = self.list_pop,
+    preview_popup = self.preview_pop,
+  })
+  Actions:setup({ list = self.list, ui = self })
+  self.list:setup_list_keymaps(self)
 end
 
----@param tree NuiTree
-function Ui:setup_list_keymaps(tree)
-  local list_pop = self.list_pop
-  local preview_winid = self.preview_pop.winid
-  local list = List:new({ winid = list_pop.winid, bufnr = list_pop.bufnr, tree = tree })
-
-  -- focus preview
-  list_pop:map('n', '<leader>h', function()
-    api.nvim_set_current_win(self.preview_pop.winid)
-  end, map_opt)
-
-  -- quit
-  list_pop:map('n', 'q', function()
-    list_pop:unmount()
-  end, map_opt)
-
-  ---@param opts {start:number,cycle?:boolean,backwards?:boolean}
-  local function move(opts)
-    local start_node = tree:get_node(opts.start)
-    local line_count = vim.api.nvim_buf_line_count(self.list_pop.bufnr)
-    local idx = opts.start + (opts.backwards and -1 or 1)
-    local col = list:get_col()
-
-    if opts.cycle then
-      idx = ((idx - 1) % line_count) + 1
-    end
-
-    local node, linenr = tree:get_node(idx)
-    if not node or idx > line_count then
-      return nil
-    end
-
-    -- Fixup cursor col position
-    if start_node and col > 0 then
-      if start_node:has_children() and not node:has_children() then
-        col = col - 2
-      elseif not start_node:has_children() and node:has_children() then
-        col = col + 2
-      end
-    end
-
-    vim.api.nvim_win_set_cursor(list.winid, { idx, col })
-    if node:has_children() then
-      return -- don't update preview if it is a group
-    end
-    self:update_preview(node.data)
-  end
-
-  list_pop:map('n', 'j', function()
-    local node = list:next({ cycle = false })
-    if node then
-      self:update_preview(node.data)
-    end
-  end, map_opt)
-  list_pop:map('n', 'k', function()
-    local node = list:previous({ cycle = false })
-    if node then
-      self:update_preview(node.data)
-    end
-  end, map_opt)
-
-  list_pop:map('n', '<tab>', function()
-    local node = list:next({ cycle = true, skip_groups = true })
-    if node then
-      self:update_preview(node.data)
-    end
-  end, map_opt)
-
-  list_pop:map('n', '<s-tab>', function()
-    local node = list:previous({ cycle = true, skip_groups = true })
-    if node then
-      self:update_preview(node.data)
-    end
-  end, map_opt)
-
-  list_pop:map('n', 'o', function()
-    local node = tree:get_node()
-    if not node or not node.data then
-      return
-    end
-    local locations = node.data
-
-    -- TODO: get parent winid
-    api.nvim_set_current_win(preview_winid)
-    api.nvim_win_set_cursor(preview_winid, { locations.start_line + 1, locations.start_col })
-    api.nvim_win_call(preview_winid, function()
-      vim.cmd('norm! zv')
-      vim.cmd('norm! zz')
-    end)
-  end, map_opt)
-
-  --------------------------------------------------
-  -- NuiTree mappings ------------------------------
-  --------------------------------------------------
-
-  -- print current node
-  list_pop:map('n', '<CR>', function()
-    local node = tree:get_node()
-    _G.foo = node
-    -- print(vim.inspect(node))
-  end, map_opt)
-
-  -- collapse current node
-  list_pop:map('n', 'h', function()
-    local node = tree:get_node()
-
-    if node:collapse() then
-      tree:render()
-    end
-  end, map_opt)
-
-  -- collapse all nodes
-  list_pop:map('n', 'H', function()
-    local updated = false
-
-    for _, node in pairs(tree.nodes.by_id) do
-      updated = node:collapse() or updated
-    end
-
-    if updated then
-      tree:render()
-    end
-  end, map_opt)
-
-  -- expand current node
-  list_pop:map('n', 'l', function()
-    local node = tree:get_node()
-
-    if node:expand() then
-      tree:render()
-    end
-  end, map_opt)
-
-  -- expand all nodes
-  list_pop:map('n', 'L', function()
-    local updated = false
-
-    for _, node in pairs(tree.nodes.by_id) do
-      updated = node:expand() or updated
-    end
-
-    if updated then
-      tree:render()
-    end
-  end, map_opt)
-
-  -- add new node under current node
-  list_pop:map('n', 'a', function()
-    local node = tree:get_node()
-    tree:add_node(
-      NuiTree.Node({ text = 'd' }, {
-        NuiTree.Node({ text = 'd-1' }),
-      }),
-      node:get_id()
-    )
-    tree:render()
-  end, map_opt)
-
-  -- delete current node
-  list_pop:map('n', 'd', function()
-    local node = tree:get_node()
-    tree:remove_node(node:get_id())
-    tree:render()
-  end, map_opt)
-end
-
----@param location_item NeoGlanceLocationItem
+---@param location_item NeoGlanceLocation|NeoGlanceLocationItem
 function Ui:setup_preview_keymaps(location_item)
   local list_winid = self.list_pop.winid
   local preview_winid = self.preview_pop.winid
@@ -292,7 +126,7 @@ function Ui:setup_preview_keymaps(location_item)
   return preview_keymaps
 end
 
----@param location_item NeoGlanceLocationItem|nil
+---@param location_item NeoGlanceLocation|NeoGlanceLocationItem|nil
 ---@param initial? boolean
 function Ui:update_preview(location_item, initial)
   if not location_item or not location_item.is_group_item then
@@ -352,8 +186,10 @@ function Ui:on_detach_preview_buffer(bufnr, preview_keymaps)
 end
 
 ---@param settings NeoGlanceUiSettings
-function Ui:configure(settings)
+---@param mappings table
+function Ui:configure(settings, mappings)
   self.settings = settings
+  self.mappings = mappings
 end
 
 return Ui

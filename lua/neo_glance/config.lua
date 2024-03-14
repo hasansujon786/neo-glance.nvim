@@ -1,9 +1,20 @@
+local actions = require('neo_glance.actions')
 local M = {}
 
 ---@return NeoGlanceConfig
 function M.get_default_config()
   ---@type NeoGlanceConfig
   local config = {
+    mappings = {
+      list = {
+        ['<tab>'] = actions.next_location,
+        ['<s-tab>'] = actions.previous_location,
+        ['<leader>h'] = actions.enter_win('preview'),
+        ['j'] = actions.next,
+        ['k'] = actions.previous,
+        ['q'] = actions.close,
+      },
+    },
     settings = {
       preview = {
         enter = false,
