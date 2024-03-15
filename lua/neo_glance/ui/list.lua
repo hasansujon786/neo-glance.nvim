@@ -1,3 +1,4 @@
+local Actions = require('neo_glance.actions')
 local NuiTree = require('nui.tree')
 
 local api = vim.api
@@ -9,13 +10,17 @@ local map_opt = { noremap = true, nowait = true }
 ---@field tree NuiTree
 ---@field popup NuiPopup
 ---@field preview_popup NuiPopup
+---@field parent_bufnr number
+---@field parent_winid number
 local List = {}
 List.__index = List
 
----@param opts {winid:number,bufnr:number,tree:NuiTree|nil,popup:NuiPopup|nil,preview_popup:NuiPopup|nil}
+---@param opts {winid:number,bufnr:number,tree:NuiTree,popup:NuiPopup,preview_popup:NuiPopup,parent_bufnr:number,parent_winid:number}
 ---@return NeoGlanceUiList
 function List:new(opts)
   return setmetatable({
+    parent_winid = opts.parent_winid,
+    parent_bufnr = opts.parent_bufnr,
     winid = opts.winid,
     bufnr = opts.bufnr,
     tree = opts.tree,
@@ -123,11 +128,72 @@ function List:previous(opts)
   return nil
 end
 
+function List:toggle_fold()
+  local node = self.tree:get_node()
+  if not node then
+    return
+  end
+
+  local updated = false
+  local is_open = node:is_expanded()
+
+  if is_open then
+    updated = node:collapse() or updated
+  else
+    updated = node:expand() or updated
+  end
+
+  if updated then
+    self.tree:render()
+  end
+end
+function List:open_fold()
+  local node = self.tree:get_node()
+  if not node then
+    return
+  end
+
+  if node:expand() then
+    self.tree:render()
+  end
+end
+function List:close_fold()
+  local node = self.tree:get_node()
+  if not node then
+    return
+  end
+
+  if node:collapse() then
+    self.tree:render()
+  end
+end
+function List:collapse_all()
+  local updated = false
+
+  for _, node in pairs(self.tree.nodes.by_id) do
+    updated = node:collapse() or updated
+  end
+
+  if updated then
+    self.tree:render()
+  end
+end
+function List:expand_all()
+  local updated = false
+
+  for _, node in pairs(self.tree.nodes.by_id) do
+    updated = node:expand() or updated
+  end
+
+  if updated then
+    self.tree:render()
+  end
+end
+
 ---@param ui NeoGlanceUI
 function List:setup_list_keymaps(ui)
   local pop = self.popup
   local tree = self.tree
-  local preview_winid = self.preview_popup.winid
 
   local keymap_opts = {
     buffer = pop.bufnr,
@@ -140,26 +206,9 @@ function List:setup_list_keymaps(ui)
     vim.keymap.set('n', key, action, keymap_opts)
   end
 
-  pop:map('n', 'o', function()
-    local node = tree:get_node()
-    if not node or not node.data then
-      return
-    end
-    local locations = node.data
-
-    -- TODO: get parent winid
-    api.nvim_set_current_win(preview_winid)
-    api.nvim_win_set_cursor(preview_winid, { locations.start_line + 1, locations.start_col })
-    api.nvim_win_call(preview_winid, function()
-      vim.cmd('norm! zv')
-      vim.cmd('norm! zz')
-    end)
-  end, map_opt)
-
   vim.defer_fn(function()
     api.nvim_set_current_win(pop.winid)
   end, 50)
-
   --------------------------------------------------
   -- NuiTree mappings ------------------------------
   --------------------------------------------------
@@ -169,50 +218,6 @@ function List:setup_list_keymaps(ui)
     local node = tree:get_node()
     _G.foo = node
     -- print(vim.inspect(node))
-  end, map_opt)
-
-  -- collapse current node
-  pop:map('n', 'h', function()
-    local node = tree:get_node()
-
-    if node:collapse() then
-      tree:render()
-    end
-  end, map_opt)
-
-  -- collapse all nodes
-  pop:map('n', 'H', function()
-    local updated = false
-
-    for _, node in pairs(tree.nodes.by_id) do
-      updated = node:collapse() or updated
-    end
-
-    if updated then
-      tree:render()
-    end
-  end, map_opt)
-
-  -- expand current node
-  pop:map('n', 'l', function()
-    local node = tree:get_node()
-
-    if node:expand() then
-      tree:render()
-    end
-  end, map_opt)
-
-  -- expand all nodes
-  pop:map('n', 'L', function()
-    local updated = false
-
-    for _, node in pairs(tree.nodes.by_id) do
-      updated = node:expand() or updated
-    end
-
-    if updated then
-      tree:render()
-    end
   end, map_opt)
 
   -- add new node under current node

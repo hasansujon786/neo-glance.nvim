@@ -19,11 +19,14 @@ end
 ---@param method string
 ---@param context? table
 function Lsp:references(method, context)
+  local parent_bufnr = vim.api.nvim_get_current_buf()
+  local parent_winid = vim.api.nvim_get_current_win()
+
   vim.validate({ context = { context, 't', true } })
   local params = vim.lsp.util.make_position_params()
   params.context = context or { includeDeclaration = true }
 
-  local client_req_ids, cancel_all_reques = vim.lsp.buf_request(0, method, params, function(err, result, ctx, _)
+  local client_req_ids, cancel_all_req = vim.lsp.buf_request(parent_bufnr, method, params, function(err, result, ctx, _)
     if err then
       error(err.message)
     end
@@ -34,16 +37,18 @@ function Lsp:references(method, context)
     local client = vim.lsp.get_client_by_id(ctx.client_id)
     local offset_encoding = client.server_capabilities.offsetEncoding
 
-    self:handle_lsp_results(result, params, offset_encoding)
+    self:handle_lsp_results(result, params, offset_encoding, parent_bufnr, parent_winid)
   end)
 end
 
-function Lsp:handle_lsp_results(result, params, offset_encoding)
+function Lsp:handle_lsp_results(result, params, offset_encoding, parent_bufnr, parent_winid)
   local locations = util_lsp.procrss_locations(result, params, offset_encoding)
 
-  ---@type UiRenderOpts
-  local renderOpts = { locations = locations }
-  self.ui:render(renderOpts, util.create_tree_nodes_from_locations)
+  self.ui:render({
+    locations = locations,
+    parent_bufnr = parent_bufnr,
+    parent_winid = parent_winid,
+  }, util.create_tree_nodes_from_locations)
 end
 
 ---@param ui NeoGlanceUI

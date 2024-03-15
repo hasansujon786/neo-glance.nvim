@@ -91,11 +91,13 @@ function Ui:render_list(nodes, opts)
 
   tree:render()
   self.list = List:new({
+    parent_winid = opts.parent_winid,
+    parent_bufnr = opts.parent_bufnr,
     winid = self.list_pop.winid,
     bufnr = self.list_pop.bufnr,
-    tree = tree,
     popup = self.list_pop,
     preview_popup = self.preview_pop,
+    tree = tree,
   })
   Actions:setup({ list = self.list, ui = self })
   self.list:setup_list_keymaps(self)

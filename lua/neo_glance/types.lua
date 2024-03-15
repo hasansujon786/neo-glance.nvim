@@ -2,6 +2,8 @@
 ---@field preview_opts? nui_popup_options
 ---@field list_opts? nui_popup_options
 ---@field locations NeoGlanceLocation[]
+---@field parent_bufnr number
+---@field parent_winid number
 
 ---@class NeoGlanceUiSettings
 ---@field preview nui_popup_options
