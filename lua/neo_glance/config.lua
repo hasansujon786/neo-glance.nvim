@@ -9,7 +9,6 @@ function M.get_default_config()
       list = {
         ['<tab>'] = actions.next_location,
         ['<s-tab>'] = actions.previous_location,
-        ['<leader>h'] = actions.enter_win('preview'),
         ['o'] = actions.jump,
         ['v'] = actions.jump_vsplit,
         ['s'] = actions.jump_split,
@@ -22,6 +21,21 @@ function M.get_default_config()
         ['h'] = actions.close_fold,
         ['L'] = actions.expand_all,
         ['H'] = actions.collapse_all,
+
+        ['<A-n>'] = actions.next_location, -- Bring the cursor to the next location skipping groups in the list
+        ['<A-p>'] = actions.previous_location, -- Bring the cursor to the previous location skipping groups in the list
+        ['<BS>'] = actions.enter_win('preview'), -- Focus preview window
+        ['<leader>l'] = actions.enter_win('preview'), -- Focus preview window
+        ['<leader>h'] = actions.enter_win('preview'), -- Focus preview window
+        ['<leader>q'] = actions.close,
+      },
+      preview = {
+        -- ['<A-n>'] = actions.next_location, -- Bring the cursor to the next location skipping groups in the list
+        -- ['<A-p>'] = actions.previous_location, -- Bring the cursor to the previous location skipping groups in the list
+        -- ['<BS>'] = actions.enter_win('list'), -- Focus list window
+        ['<leader>l'] = actions.enter_win('list'), -- Focus list window
+        -- ['<leader>h'] = actions.enter_win('list'), -- Focus list window
+        -- ['<leader>q'] = actions.close,
       },
     },
     settings = {

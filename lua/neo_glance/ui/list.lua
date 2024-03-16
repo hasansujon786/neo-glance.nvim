@@ -8,14 +8,15 @@ local map_opt = { noremap = true, nowait = true }
 ---@field winid number
 ---@field bufnr number
 ---@field tree NuiTree
----@field popup NuiPopup
+---@field list_popup NuiPopup
 ---@field preview_popup NuiPopup
 ---@field parent_bufnr number
 ---@field parent_winid number
+---@field mappings table
 local List = {}
 List.__index = List
 
----@param opts {winid:number,bufnr:number,tree:NuiTree,popup:NuiPopup,preview_popup:NuiPopup,parent_bufnr:number,parent_winid:number}
+---@param opts {winid:number,bufnr:number,tree:NuiTree,list_popup:NuiPopup,preview_popup:NuiPopup,parent_bufnr:number,parent_winid:number,mappings:table}
 ---@return NeoGlanceUiList
 function List:new(opts)
   return setmetatable({
@@ -24,8 +25,9 @@ function List:new(opts)
     winid = opts.winid,
     bufnr = opts.bufnr,
     tree = opts.tree,
-    popup = opts.popup,
+    list_popup = opts.list_popup,
     preview_popup = opts.preview_popup,
+    mappings = opts.mappings
   }, self)
 end
 
@@ -190,9 +192,8 @@ function List:expand_all()
   end
 end
 
----@param ui NeoGlanceUI
-function List:setup_list_keymaps(ui)
-  local pop = self.popup
+function List:setup_list_keymaps()
+  local pop = self.list_popup
   local tree = self.tree
 
   local keymap_opts = {
@@ -202,7 +203,7 @@ function List:setup_list_keymaps(ui)
     silent = true,
   }
 
-  for key, action in pairs(ui.mappings.list) do
+  for key, action in pairs(self.mappings) do
     vim.keymap.set('n', key, action, keymap_opts)
   end
 

@@ -16,26 +16,26 @@ end
 
 function actions.next()
   local item = actions.list:next()
-  actions.ui:update_preview(item)
+  actions.ui.preview:update_buffer(item)
 end
 
 function actions.previous()
   local item = actions.list:previous()
-  actions.ui:update_preview(item)
+  actions.ui.preview:update_buffer(item)
 end
 
 function actions.next_location()
   local item = actions.list:next({ cycle = true, skip_groups = true })
-  actions.ui:update_preview(item)
+  actions.ui.preview:update_buffer(item)
 end
 
 function actions.previous_location()
   local item = actions.list:previous({ cycle = true, skip_groups = true })
-  actions.ui:update_preview(item)
+  actions.ui.preview:update_buffer(item)
 end
 
 function actions.close()
-  actions.list.popup:unmount()
+  actions.list.list_popup:unmount()
   actions.list.preview_popup:unmount()
 end
 
