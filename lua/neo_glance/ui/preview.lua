@@ -1,14 +1,8 @@
 local Actions = require('neo_glance.actions')
+local Config = require('neo_glance.config')
+local Winbar = require('glance.winbar')
 
 local _g_util = require('_glance.utils')
-
-local api = vim.api
-local event = require('nui.utils.autocmd').event
-local util = require('neo_glance.util')
-local anchor = { 'NW', 'NE', 'SW', 'SE' }
-
-local api = vim.api
-local map_opt = { noremap = true, nowait = true }
 
 ---@class NeoGlanceUiPreview
 ---@field winid number
@@ -22,9 +16,59 @@ local map_opt = { noremap = true, nowait = true }
 local Preview = {}
 Preview.__index = Preview
 
----@param opts {winid:number,bufnr:number,list_popup:NuiPopup,preview_popup:NuiPopup,parent_bufnr:number,parent_winid:number,mappings:table}
+local touched_buffers = {}
+
+local winhl = {
+  'Normal:GlancePreviewNormal',
+  'CursorLine:GlancePreviewCursorLine',
+  'SignColumn:GlancePreviewSignColumn',
+  'EndOfBuffer:GlancePreviewEndOfBuffer',
+  'LineNr:GlancePreviewLineNr',
+}
+
+-- Fails to set winhighlight in 0.7.2 for some reason
+if vim.fn.has('nvim-0.8') == 1 then
+  table.insert(winhl, 'GlanceNone:GlancePreviewMatch')
+end
+
+local win_opts = {
+  winfixwidth = true,
+  winfixheight = true,
+  cursorbind = false,
+  scrollbind = false,
+  winhighlight = table.concat(winhl, ','),
+}
+
+local float_win_opts = {
+  'number',
+  'relativenumber',
+  'cursorline',
+  'cursorcolumn',
+  'foldcolumn',
+  'spell',
+  'list',
+  'signcolumn',
+  'colorcolumn',
+  'fillchars',
+  'winhighlight',
+}
+
+-- local function clear_hl(bufnr)
+--   if vim.api.nvim_buf_is_valid(bufnr) then
+--     vim.api.nvim_buf_clear_namespace(bufnr, config.namespace, 0, -1)
+--   end
+-- end
+
+-- function Preview.create(opts)
+--   win_opts = vim.tbl_extend('keep', win_opts, config.options.preview_win_opts or {})
+--   local preview = Preview:new(opts)
+--   return preview
+-- end
+
+---@param opts {winid:number,bufnr:number,list_popup:NuiPopup,preview_popup:NuiPopup,parent_bufnr:number,parent_winid:number,mappings:table,win_opts:table}
 ---@return NeoGlanceUiPreview
 function Preview:new(opts)
+  win_opts = vim.tbl_extend('keep', win_opts, opts.win_opts or {})
   return setmetatable({
     winid = opts.winid,
     bufnr = opts.bufnr,
@@ -37,80 +81,128 @@ function Preview:new(opts)
   }, self)
 end
 
----@param location_item NeoGlanceLocation|NeoGlanceLocationItem|nil
----@param initial? boolean
-function Preview:update_buffer(location_item, initial)
-  if not location_item or not location_item.is_group_item then
-    return nil
-  end
-  if self.current_location ~= nil and vim.deep_equal(self.current_location, location_item) then
-    return
-  end
-  initial = initial or false
-  local winid = self.preview_popup.winid
+---@param bufnr number
+---@param keymaps table
+function Preview:on_attach_buffer(bufnr, keymaps)
+  if bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr) then
+    local throttled_on_change, on_change_timer = _g_util.throttle_leading(function()
+      local is_active_buffer = self.current_location and bufnr == self.current_location.bufnr
+      local is_listed = vim.fn.buflisted(bufnr) == 1
 
-  api.nvim_win_set_buf(winid, location_item.bufnr)
-  api.nvim_win_set_cursor(winid, { location_item.start_line + 1, location_item.start_col })
-  api.nvim_win_call(winid, function()
-    vim.cmd('norm! zv')
-    vim.cmd('norm! zz')
-  end)
+      if is_active_buffer and not is_listed then
+        vim.api.nvim_buf_set_option(bufnr, 'buflisted', true)
+        vim.api.nvim_buf_set_option(bufnr, 'bufhidden', '')
+      end
+    end, 1000)
 
-  if not initial and self.current_location ~= nil and self.current_location.bufnr == location_item.bufnr then
-    self.current_location = location_item -- exit if buffer but update cursor
-    return
-  end
-  self.current_location = location_item -- got a new item
+    local autocmd_id = vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
+      group = 'NeoGlance',
+      buffer = bufnr,
+      callback = throttled_on_change,
+    })
 
-  -- _g_util.win_set_options(winid, self.settings.preview.win_options)
-  local preview_keymaps = self:setup_preview_keymaps(location_item)
+    self.clear_autocmd = function()
+      pcall(vim.api.nvim_del_autocmd, autocmd_id)
+      if on_change_timer then
+        on_change_timer:close()
+        on_change_timer = nil
+      end
+    end
 
-  local augroup = api.nvim_create_augroup('neo-glance-preview', { clear = true })
-  local autocmd_id
-  autocmd_id = api.nvim_create_autocmd({ event.WinClosed }, {
-    group = augroup,
-    buffer = location_item.bufnr,
-    callback = function()
-      -- FIXME: fire on current event
-      self:on_detach_preview_buffer(location_item.bufnr, preview_keymaps)
-    end,
-  })
-  self.clear_preview_autocmd = function()
-    pcall(api.nvim_del_autocmd, autocmd_id)
-    -- if on_change_timer then
-    --   on_change_timer:close()
-    --   on_change_timer = nil
-    -- end
+    local keymap_opts = {
+      buffer = bufnr,
+      noremap = true,
+      nowait = true,
+      silent = true,
+    }
+
+    for key, action in pairs(keymaps) do
+      vim.keymap.set('n', key, action, keymap_opts)
+    end
   end
 end
 
-function Preview:on_detach_preview_buffer(bufnr, preview_keymaps)
+function Preview:on_detach_buffer(bufnr, keymaps)
   if type(self.clear_autocmd) == 'function' then
     self.clear_autocmd()
     self.clear_autocmd = nil
   end
 
-  if bufnr ~= nil and api.nvim_buf_is_valid(bufnr) then
-    for lhs, _ in pairs(preview_keymaps) do
-      pcall(api.nvim_buf_del_keymap, bufnr, 'n', lhs)
+  if bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr) then
+    for lhs, _ in pairs(keymaps) do
+      pcall(vim.api.nvim_buf_del_keymap, bufnr, 'n', lhs)
     end
   end
 end
 
----@param location_item NeoGlanceLocation|NeoGlanceLocationItem
-function Preview:setup_preview_keymaps(location_item)
-  local keymap_opts = {
-    buffer = location_item.bufnr,
-    noremap = true,
-    nowait = true,
-    silent = true,
-  }
-
-  for key, action in pairs(self.mappings) do
-    vim.keymap.set('n', key, action, keymap_opts)
+function Preview:restore_win_opts()
+  for opt, _ in pairs(win_opts) do
+    if not vim.tbl_contains(float_win_opts, opt) then
+      local value = vim.api.nvim_win_get_option(self.parent_winid, opt)
+      vim.api.nvim_win_set_option(self.winid, opt, value)
+    end
   end
 
-  return self.mappings
+  for _, opt in ipairs(float_win_opts) do
+    local value = vim.api.nvim_win_get_option(self.parent_winid, opt)
+    vim.api.nvim_win_set_option(self.winid, opt, value)
+  end
+end
+
+---@param item NeoGlanceLocation|NeoGlanceLocationItem|nil
+---@param initial? boolean
+function Preview:update_buffer(item, initial)
+  if not vim.api.nvim_win_is_valid(self.winid) then
+    return
+  end
+
+  if not item or item.is_group or item.is_unreachable then
+    return
+  end
+
+  if vim.deep_equal(self.current_location, item) then
+    return
+  end
+
+  local current_bufnr = (self.current_location or {}).bufnr
+
+  if current_bufnr ~= item.bufnr then
+    local config = Config.get_config()
+    self:restore_win_opts()
+    self:on_detach_buffer(current_bufnr, config.mappings.preview)
+    vim.api.nvim_win_set_buf(self.winid, item.bufnr)
+    _g_util.win_set_options(self.winid, win_opts)
+
+    -- if config.winbar.enable and self.winbar then
+    --   local filename = vim.fn.fnamemodify(item.filename, ':t')
+    --   local filepath = vim.fn.fnamemodify(item.filename, ':p:~:h')
+    --   self.winbar:render({ filename = filename, filepath = filepath })
+    -- end
+
+    vim.api.nvim_buf_call(item.bufnr, function()
+      if vim.api.nvim_buf_get_option(item.bufnr, 'filetype') == '' then
+        vim.cmd('do BufRead')
+      end
+    end)
+
+    self:on_attach_buffer(item.bufnr, config.mappings.preview)
+  end
+
+  vim.api.nvim_win_set_cursor(self.winid, { item.start_line + 1, item.start_col })
+
+  vim.api.nvim_win_call(self.winid, function()
+    vim.cmd('norm! zv')
+    vim.cmd('norm! zz')
+  end)
+
+  self.current_location = item
+
+  -- if not vim.tbl_contains(touched_buffers, item.bufnr) then
+  --   for _, location in pairs(group.items) do
+  --     self:hl_buf(location)
+  --   end
+  --   table.insert(touched_buffers, item.bufnr)
+  -- end
 end
 
 return Preview

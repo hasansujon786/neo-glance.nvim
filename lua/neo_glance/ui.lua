@@ -21,7 +21,7 @@ Ui.__index = Ui
 function Ui:new(settings, mappings)
   return setmetatable({
     list = List:new({ bufnr = 0, winid = 0 }),
-    preview = Preview:new({ bufnr = 0, winid = 0 }),
+    preview = Preview:new({ bufnr = 0, winid = 0, win_opts = settings.preview.win_options }),
     settings = settings,
     mappings = mappings,
   }, self)
@@ -54,6 +54,8 @@ function Ui:render(opts, node_extractor)
   end
   self.preview_pop:on(event.WinClosed, exit_layout, { once = true })
   self.list_pop:on(event.WinClosed, exit_layout, { once = true })
+
+  local augroup = vim.api.nvim_create_augroup('NeoGlance', { clear = true })
 
   local nodes, first_child = node_extractor(opts.locations)
   self:render_list(nodes, opts)
@@ -105,10 +107,11 @@ end
 ---@param initial? boolean
 function Ui:render_preview(location_item, initial, opts)
   self.preview = Preview:new({
+    win_opts = self.settings.preview.win_options,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
-    winid = self.list_pop.winid,
-    bufnr = self.list_pop.bufnr,
+    winid = self.preview_pop.winid,
+    bufnr = self.preview_pop.bufnr,
     list_popup = self.list_pop,
     preview_popup = self.preview_pop,
     mappings = self.mappings.preview,

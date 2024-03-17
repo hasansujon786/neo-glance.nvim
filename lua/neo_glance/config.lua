@@ -1,5 +1,7 @@
 local actions = require('neo_glance.actions')
-local M = {}
+local M = {
+  options = {},
+}
 
 ---@return NeoGlanceConfig
 function M.get_default_config()
@@ -38,6 +40,7 @@ function M.get_default_config()
         -- ['<leader>q'] = actions.close,
       },
     },
+    winbar = { enable = true },
     settings = {
       preview = {
         enter = false,
@@ -83,6 +86,11 @@ function M.merge_config(user_config, config)
   local _config = config or M.get_default_config()
   _config = vim.tbl_extend('force', config, user_config)
   return _config
+end
+
+---@return NeoGlanceConfig
+function M.get_config()
+  return require('neo_glance').config
 end
 
 return M

@@ -11,11 +11,16 @@
 
 ---@class NeoGlanceConfig
 ---@field settings NeoGlanceUiSettings
----@field mappings table
+---@field mappings {list:table,preview:table}
+---@field winbar NeoGlanceWinbarOpts
 
 ---@class NeoGlanceUserConfig
 ---@field settings? NeoGlanceUiSettings
----@field mappings? table
+---@field mappings? {list:table,preview:table}
+---@field winbar? NeoGlanceWinbarOpts
+
+---@class NeoGlanceWinbarOpts
+---@field enable boolean
 
 ---@class NeoGlanceLocation
 ---@field items NeoGlanceLocationItem[]

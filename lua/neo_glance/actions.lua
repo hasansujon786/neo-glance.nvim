@@ -35,6 +35,7 @@ function actions.previous_location()
 end
 
 function actions.close()
+  vim.api.nvim_del_augroup_by_name('NeoGlance')
   actions.list.list_popup:unmount()
   actions.list.preview_popup:unmount()
 end
