@@ -11,27 +11,26 @@ local event = require('nui.utils.autocmd').event
 local util = require('neo_glance.util')
 
 ---@class NeoGlanceUI
----@field settings NeoGlanceUiSettings
----@field mappings table
+---@field config NeoGlanceConfig
 local Ui = {}
 Ui.__index = Ui
 
----@param settings NeoGlanceUiSettings
----@param mappings table
-function Ui:new(settings, mappings)
+---@param config NeoGlanceConfig
+function Ui:init(config)
+  Actions:init(config)
+
   return setmetatable({
-    list = List:new({ bufnr = 0, winid = 0 }),
-    preview = Preview:new({ bufnr = 0, winid = 0, win_opts = settings.preview.win_options }),
-    settings = settings,
-    mappings = mappings,
+    list = List:init(),
+    preview = Preview:init({ config = config }),
+    config = config,
   }, self)
 end
 
 ---@param opts UiRenderOpts
 ---@param node_extractor NeoGlanceNodeExtractor
 function Ui:render(opts, node_extractor)
-  local list_conf = util.merge(self.settings.list, opts.list_opts or {})
-  local preview_conf = util.merge(self.settings.preview, opts.preview_opts or {})
+  local list_conf = util.merge(self.config.settings.preview, opts.list_opts or {})
+  local preview_conf = util.merge(self.config.settings.preview, opts.preview_opts or {})
 
   self.list_pop = Popup(list_conf)
   self.preview_pop = Popup(preview_conf)
@@ -61,6 +60,13 @@ function Ui:render(opts, node_extractor)
   self:render_list(nodes, opts)
 
   self:render_preview(first_child, true, opts)
+
+  Actions:create({
+    list = self.list,
+    preview = self.preview,
+    preview_popup = self.preview_pop,
+    list_popup = self.list_pop,
+  })
 end
 
 ---@param nodes table
@@ -89,41 +95,33 @@ function Ui:render_list(nodes, opts)
   })
 
   tree:render()
-  self.list = List:new({
-    parent_winid = opts.parent_winid,
-    parent_bufnr = opts.parent_bufnr,
+  self.list = List:create({
+    tree = tree,
     winid = self.list_pop.winid,
     bufnr = self.list_pop.bufnr,
-    list_popup = self.list_pop,
-    preview_popup = self.preview_pop,
-    tree = tree,
-    mappings = self.mappings.list,
+    parent_winid = opts.parent_winid,
+    parent_bufnr = opts.parent_bufnr,
   })
-  Actions:setup({ list = self.list, ui = self })
-  self.list:setup_list_keymaps()
+  self.list:setup_list_keymaps(self.config.mappings)
 end
 
 ---@param location_item NeoGlanceLocation|NeoGlanceLocationItem|nil
 ---@param initial? boolean
 function Ui:render_preview(location_item, initial, opts)
-  self.preview = Preview:new({
-    win_opts = self.settings.preview.win_options,
-    parent_winid = opts.parent_winid,
-    parent_bufnr = opts.parent_bufnr,
+  self.preview = Preview:create({
     winid = self.preview_pop.winid,
     bufnr = self.preview_pop.bufnr,
-    list_popup = self.list_pop,
-    preview_popup = self.preview_pop,
-    mappings = self.mappings.preview,
+    parent_winid = opts.parent_winid,
+    parent_bufnr = opts.parent_bufnr,
   })
   self.preview:update_buffer(location_item, initial)
 end
 
----@param settings NeoGlanceUiSettings
----@param mappings table
-function Ui:configure(settings, mappings)
-  self.settings = settings
-  self.mappings = mappings
+---@param config NeoGlanceConfig
+function Ui:configure(config)
+  self.preview:configure(config)
+  Actions:configure(config)
+  self.config = config
 end
 
 return Ui

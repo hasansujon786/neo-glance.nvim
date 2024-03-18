@@ -1,43 +1,53 @@
 ---@class NeoGlanceActions
----@field preview table
 ---@field list NeoGlanceUiList
----@field ui NeoGlanceUI
+---@field preview NeoGlanceUiPreview
+---@field list_popup NuiPopup
+---@field preview_popup NuiPopup
+---@field config NeoGlanceConfig
 local actions = {}
 actions.__index = actions
 
----@param initial_opts {list:NeoGlanceUiList,preview:table,ui:NeoGlanceUI}
-function actions:new(initial_opts)
-  return setmetatable({
-    preview = initial_opts.preview,
-    list = initial_opts.list,
-    ui = initial_opts.ui,
-  }, self)
+---@param config NeoGlanceConfig
+function actions:init(config)
+  self:configure(config)
+end
+
+---@param opts {list:NeoGlanceUiList,preview:NeoGlanceUiPreview,list_popup:NuiPopup,preview_popup:NuiPopup}
+function actions:create(opts)
+  actions.list = opts.list
+  actions.preview = opts.preview
+  actions.list_popup = opts.list_popup
+  actions.preview_popup = opts.preview_popup
+  -- return setmetatable({
+  --   list = opts.list,
+  --   preview = opts.preview,
+  -- }, self)
 end
 
 function actions.next()
   local item = actions.list:next()
-  actions.ui.preview:update_buffer(item)
+  actions.preview:update_buffer(item)
 end
 
 function actions.previous()
   local item = actions.list:previous()
-  actions.ui.preview:update_buffer(item)
+  actions.preview:update_buffer(item)
 end
 
 function actions.next_location()
   local item = actions.list:next({ cycle = true, skip_groups = true })
-  actions.ui.preview:update_buffer(item)
+  actions.preview:update_buffer(item)
 end
 
 function actions.previous_location()
   local item = actions.list:previous({ cycle = true, skip_groups = true })
-  actions.ui.preview:update_buffer(item)
+  actions.preview:update_buffer(item)
 end
 
 function actions.close()
   vim.api.nvim_del_augroup_by_name('NeoGlance')
-  actions.list.list_popup:unmount()
-  actions.list.preview_popup:unmount()
+  actions.list_popup:unmount()
+  actions.preview_popup:unmount()
 end
 
 function actions:_jump(opts)
@@ -90,7 +100,7 @@ end
 function actions.enter_win(win)
   return function()
     if win == 'preview' then
-      vim.api.nvim_set_current_win(actions.list.preview_popup.winid)
+      vim.api.nvim_set_current_win(actions.preview.winid)
     end
 
     if win == 'list' then
@@ -115,11 +125,9 @@ function actions.expand_all()
   actions.list:expand_all()
 end
 
----@param opts {list:NeoGlanceUiList,preview:table,ui:NeoGlanceUI}
-function actions:setup(opts)
-  self.preview = opts.preview
-  self.list = opts.list
-  self.ui = opts.ui
+---@param config NeoGlanceConfig
+function actions:configure(config)
+  self.config = config
 end
 
 return actions

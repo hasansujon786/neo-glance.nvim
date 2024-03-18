@@ -11,10 +11,10 @@ local NeoGlance = {}
 NeoGlance.__index = NeoGlance
 
 ---@return NeoGlance
-function NeoGlance:new()
+function NeoGlance:init()
   local config = Config.get_default_config()
 
-  local ui = Ui:new(config.settings, config.mappings)
+  local ui = Ui:init(config)
   return setmetatable({
     config = config,
     hooks_setup = false,
@@ -24,7 +24,7 @@ function NeoGlance:new()
   }, self)
 end
 
-local _neo_glance = NeoGlance:new()
+local _neo_glance = NeoGlance:init()
 
 ---NeoGlance setup
 ---@param new_config? NeoGlanceUserConfig
@@ -37,7 +37,7 @@ function NeoGlance:setup(new_config)
   if new_config ~= nil then
     self.corfig = Config.merge_config(new_config, self.config)
   end
-  self.ui:configure(self.config.settings, self.config.mappings)
+  self.ui:configure(self.config)
   self.lsp:configure(self.ui)
 
   return self

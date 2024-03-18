@@ -1,38 +1,39 @@
-local Actions = require('neo_glance.actions')
-local NuiTree = require('nui.tree')
-
 local api = vim.api
-local map_opt = { noremap = true, nowait = true }
 
 ---@class NeoGlanceUiList
 ---@field winid number
 ---@field bufnr number
 ---@field tree NuiTree
----@field list_popup NuiPopup
----@field preview_popup NuiPopup
 ---@field parent_bufnr number
 ---@field parent_winid number
----@field mappings table
 local List = {}
 List.__index = List
 
----@param opts {winid:number,bufnr:number,tree:NuiTree,list_popup:NuiPopup,preview_popup:NuiPopup,parent_bufnr:number,parent_winid:number,mappings:table}
 ---@return NeoGlanceUiList
-function List:new(opts)
+function List:init()
   return setmetatable({
-    parent_winid = opts.parent_winid,
-    parent_bufnr = opts.parent_bufnr,
+    tree = nil,
+    winid = nil,
+    bufnr = nil,
+    parent_winid = nil,
+    parent_bufnr = nil,
+  }, self)
+end
+
+---@param opts NeoGlanceUiList
+---@return NeoGlanceUiList
+function List:create(opts)
+  return setmetatable({
+    tree = opts.tree,
     winid = opts.winid,
     bufnr = opts.bufnr,
-    tree = opts.tree,
-    list_popup = opts.list_popup,
-    preview_popup = opts.preview_popup,
-    mappings = opts.mappings
+    parent_winid = opts.parent_winid,
+    parent_bufnr = opts.parent_bufnr,
   }, self)
 end
 
 function List:get_cursor()
-  return vim.api.nvim_win_get_cursor(self.winid)
+  return api.nvim_win_get_cursor(self.winid)
 end
 
 function List:get_line()
@@ -45,7 +46,7 @@ end
 
 ---@param opts { start: integer, backwards?: boolean, cycle?: boolean }
 function List:walk(opts)
-  local line_count = vim.api.nvim_buf_line_count(self.bufnr)
+  local line_count = api.nvim_buf_line_count(self.bufnr)
   local idx = opts.start + (opts.backwards and -1 or 1)
   if opts.cycle then
     idx = ((idx - 1) % line_count) + 1
@@ -79,7 +80,7 @@ function List:next(opts)
     })
   end
   if not (opts.skip_groups and node.data.is_group) then
-    vim.api.nvim_win_set_cursor(self.winid, { idx, self:get_col() })
+    api.nvim_win_set_cursor(self.winid, { idx, self:get_col() })
     return node.data, node
   end
   return nil
@@ -96,7 +97,7 @@ function List:previous(opts)
   local target_idx = 0
 
   if opts.cycle and search_from <= 0 then
-    search_from = vim.api.nvim_buf_line_count(self.bufnr)
+    search_from = api.nvim_buf_line_count(self.bufnr)
   end
 
   for i = 0, search_from, 1 do
@@ -124,7 +125,7 @@ function List:previous(opts)
   end
 
   if target_node and target_idx > 0 and not (opts.skip_groups and target_node.data.is_group) then
-    vim.api.nvim_win_set_cursor(self.winid, { target_idx, self:get_col() })
+    api.nvim_win_set_cursor(self.winid, { target_idx, self:get_col() })
     return target_node.data, target_node
   end
   return nil
@@ -192,53 +193,51 @@ function List:expand_all()
   end
 end
 
-function List:setup_list_keymaps()
-  local pop = self.list_popup
-  local tree = self.tree
-
+---@param mappings NeoGlanceConfigMappings
+function List:setup_list_keymaps(mappings)
   local keymap_opts = {
-    buffer = pop.bufnr,
+    buffer = self.bufnr,
     noremap = true,
     nowait = true,
     silent = true,
   }
 
-  for key, action in pairs(self.mappings) do
+  for key, action in pairs(mappings.list) do
     vim.keymap.set('n', key, action, keymap_opts)
   end
 
   vim.defer_fn(function()
-    api.nvim_set_current_win(pop.winid)
+    api.nvim_set_current_win(self.winid)
   end, 50)
   --------------------------------------------------
   -- NuiTree mappings ------------------------------
   --------------------------------------------------
 
   -- print current node
-  pop:map('n', '<CR>', function()
-    local node = tree:get_node()
-    _G.foo = node
-    -- print(vim.inspect(node))
-  end, map_opt)
+  -- pop:map('n', '<CR>', function()
+  --   local node = tree:get_node()
+  --   _G.foo = node
+  --   -- print(vim.inspect(node))
+  -- end, map_opt)
 
-  -- add new node under current node
-  pop:map('n', 'a', function()
-    local node = tree:get_node()
-    tree:add_node(
-      NuiTree.Node({ text = 'd' }, {
-        NuiTree.Node({ text = 'd-1' }),
-      }),
-      node:get_id()
-    )
-    tree:render()
-  end, map_opt)
+  -- -- add new node under current node
+  -- pop:map('n', 'a', function()
+  --   local node = tree:get_node()
+  --   tree:add_node(
+  --     NuiTree.Node({ text = 'd' }, {
+  --       NuiTree.Node({ text = 'd-1' }),
+  --     }),
+  --     node:get_id()
+  --   )
+  --   tree:render()
+  -- end, map_opt)
 
-  -- delete current node
-  pop:map('n', 'd', function()
-    local node = tree:get_node()
-    tree:remove_node(node:get_id())
-    tree:render()
-  end, map_opt)
+  -- -- delete current node
+  -- pop:map('n', 'd', function()
+  --   local node = tree:get_node()
+  --   tree:remove_node(node:get_id())
+  --   tree:render()
+  -- end, map_opt)
 end
 
 return List

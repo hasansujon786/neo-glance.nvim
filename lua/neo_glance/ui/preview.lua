@@ -7,12 +7,10 @@ local _g_util = require('_glance.utils')
 ---@class NeoGlanceUiPreview
 ---@field winid number
 ---@field bufnr number
----@field list_popup NuiPopup
----@field preview_popup NuiPopup
 ---@field parent_bufnr number
 ---@field parent_winid number
 ---@field current_location NeoGlanceLocation|NeoGlanceLocationItem|nil
----@field mappings table
+---@field mappings NeoGlanceConfigMappings
 local Preview = {}
 Preview.__index = Preview
 
@@ -59,25 +57,29 @@ local float_win_opts = {
 --   end
 -- end
 
--- function Preview.create(opts)
---   win_opts = vim.tbl_extend('keep', win_opts, config.options.preview_win_opts or {})
---   local preview = Preview:new(opts)
---   return preview
--- end
-
----@param opts {winid:number,bufnr:number,list_popup:NuiPopup,preview_popup:NuiPopup,parent_bufnr:number,parent_winid:number,mappings:table,win_opts:table}
+---@param opts {config:NeoGlanceConfig}
 ---@return NeoGlanceUiPreview
-function Preview:new(opts)
-  win_opts = vim.tbl_extend('keep', win_opts, opts.win_opts or {})
+function Preview:init(opts)
+  win_opts = vim.tbl_extend('keep', win_opts, opts.config.settings.preview.win_options or {})
+  return setmetatable({
+    winid = nil,
+    bufnr = nil,
+    parent_winid = nil,
+    parent_bufnr = nil,
+    current_location = nil,
+    mappings = opts.config.mappings,
+  }, self)
+end
+
+---@param opts {winid:number,bufnr:number,parent_bufnr:number,parent_winid:number}
+---@return NeoGlanceUiPreview
+function Preview:create(opts)
+  opts = opts or {}
   return setmetatable({
     winid = opts.winid,
     bufnr = opts.bufnr,
-    list_popup = opts.list_popup,
-    preview_popup = opts.preview_popup,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
-    current_location = nil,
-    mappings = opts.mappings,
   }, self)
 end
 
@@ -203,6 +205,12 @@ function Preview:update_buffer(item, initial)
   --   end
   --   table.insert(touched_buffers, item.bufnr)
   -- end
+end
+
+---@param config NeoGlanceConfig
+function Preview:configure(config)
+  win_opts = vim.tbl_extend('keep', win_opts, config.settings.preview.win_options or {})
+  self.mappings = config.mappings
 end
 
 return Preview

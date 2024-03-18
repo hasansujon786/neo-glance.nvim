@@ -9,14 +9,18 @@
 ---@field preview nui_popup_options
 ---@field list nui_popup_options
 
+---@class NeoGlanceConfigMappings
+---@field list table
+---@field preview table
+
 ---@class NeoGlanceConfig
 ---@field settings NeoGlanceUiSettings
----@field mappings {list:table,preview:table}
+---@field mappings NeoGlanceConfigMappings
 ---@field winbar NeoGlanceWinbarOpts
 
 ---@class NeoGlanceUserConfig
 ---@field settings? NeoGlanceUiSettings
----@field mappings? {list:table,preview:table}
+---@field mappings? NeoGlanceConfigMappings
 ---@field winbar? NeoGlanceWinbarOpts
 
 ---@class NeoGlanceWinbarOpts
