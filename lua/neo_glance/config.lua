@@ -39,37 +39,15 @@ function M.get_default_config()
       },
     },
     winbar = { enable = true },
-    settings = {
-      preview = {
-        enter = false,
-        focusable = true,
-        border = { style = 'single' },
-        buf_options = {
-          modifiable = true,
-          readonly = false,
-        },
-        win_options = {
-          winhighlight = 'Normal:Normal,FloatBorder:FloatBorder',
-          cursorline = true,
-          relativenumber = true,
-          signcolumn = 'no', -- TODO: make sure my statuscolumn works
-          number = true,
-          winbar = '',
-        },
-      },
-      list = {
-        enter = false,
-        focusable = true,
-        border = { style = 'single' },
-        buf_options = {
-          modifiable = true,
-          readonly = false,
-        },
-        win_options = {
-          winhighlight = 'Normal:Normal,FloatBorder:FloatBorder',
-          cursorline = true,
-        },
-      },
+    border = {
+      enable = false,
+      top_char = '―',
+      bottom_char = '―',
+    },
+    preview_win_opts = {
+      cursorline = true,
+      number = true,
+      wrap = true,
     },
   }
 
@@ -77,18 +55,61 @@ function M.get_default_config()
 end
 
 ---@param user_config NeoGlanceUserConfig
----@param config NeoGlanceConfig
+---@param old_config NeoGlanceConfig
 ---@return NeoGlanceConfig
-function M.merge_config(user_config, config)
-  user_config = user_config or {}
-  local _config = config or M.get_default_config()
-  _config = vim.tbl_extend('force', config, user_config)
-  return _config
+function M.merge_config(user_config, old_config)
+  return vim.tbl_deep_extend('force', {}, old_config, user_config or {})
 end
 
 ---@return NeoGlanceConfig
 function M.get_config()
   return require('neo_glance').config
+end
+
+---@param config NeoGlanceConfig
+---@return NeoGlancePopupOpts
+function M.get_popup_opts(config)
+  ---@type table|string
+  local border_style = 'none'
+  if config.border.enable then
+    -- stylua: ignore
+    border_style =  {
+      top_left    = "", top    = config.border.top_char,       top_right = "",
+      left        = "",                                            right = "",
+      bottom_left = "", bottom = config.border.bottom_char, bottom_right = "",
+    }
+  end
+
+  ---@type NeoGlancePopupOpts
+  local opts = {
+    preview = {
+      enter = false,
+      focusable = true,
+      border = {
+        style = border_style,
+      },
+      buf_options = {
+        modifiable = true,
+        readonly = false,
+      },
+      win_options = {},
+    },
+    list = {
+      enter = false,
+      focusable = true,
+      border = {
+        style = border_style,
+        padding = { left = 1 }, -- maybe it need to be remove
+      },
+      buf_options = {
+        modifiable = true,
+        readonly = false,
+      },
+      win_options = {},
+    },
+  }
+
+  return opts
 end
 
 return M

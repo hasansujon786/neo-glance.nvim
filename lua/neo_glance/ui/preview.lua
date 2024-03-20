@@ -60,7 +60,7 @@ local float_win_opts = {
 ---@param opts {config:NeoGlanceConfig}
 ---@return NeoGlanceUiPreview
 function Preview:init(opts)
-  win_opts = vim.tbl_extend('keep', win_opts, opts.config.settings.preview.win_options or {})
+  win_opts = vim.tbl_extend('keep', win_opts, opts.config.preview_win_opts or {})
   return self:create({
     winid = 0,
     bufnr = 0,
@@ -209,7 +209,7 @@ end
 
 ---@param config NeoGlanceConfig
 function Preview:configure(config)
-  win_opts = vim.tbl_extend('keep', win_opts, config.settings.preview.win_options or {})
+  win_opts = vim.tbl_extend('keep', win_opts, config.preview_win_opts or {})
 end
 
 return Preview

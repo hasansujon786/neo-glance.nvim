@@ -5,27 +5,6 @@
 ---@field parent_bufnr number
 ---@field parent_winid number
 
----@class NeoGlanceUiSettings
----@field preview nui_popup_options
----@field list nui_popup_options
-
----@class NeoGlanceConfigMappings
----@field list table
----@field preview table
-
----@class NeoGlanceConfig
----@field settings NeoGlanceUiSettings
----@field mappings NeoGlanceConfigMappings
----@field winbar NeoGlanceWinbarOpts
-
----@class NeoGlanceUserConfig
----@field settings? NeoGlanceUiSettings
----@field mappings? NeoGlanceConfigMappings
----@field winbar? NeoGlanceWinbarOpts
-
----@class NeoGlanceWinbarOpts
----@field enable boolean
-
 ---@class NeoGlanceLocation
 ---@field items NeoGlanceLocationItem[]
 ---@field filename string
@@ -48,3 +27,31 @@
 ---@field preview_line { value: { before: string, inside: string, after: string } }
 
 ---@alias NeoGlanceNodeExtractor fun(locations: NeoGlanceLocation[]): NuiTree.Node[], NeoGlanceLocationItem
+
+---@class NeoGlanceConfig
+---@field mappings NeoGlanceConfigMappings
+---@field preview_win_opts table
+---@field border BorderOpts
+---@field winbar NeoGlanceWinbarOpts
+
+---@class NeoGlanceUserConfig
+---@field mappings? NeoGlanceConfigMappings
+---@field preview_win_opts? table
+---@field border? BorderOpts
+---@field winbar? NeoGlanceWinbarOpts
+
+---@class NeoGlanceConfigMappings
+---@field list table
+---@field preview table
+
+---@class BorderOpts
+---@field enable boolean
+---@field top_char string
+---@field bottom_char string
+
+---@class NeoGlanceWinbarOpts
+---@field enable boolean
+
+---@class NeoGlancePopupOpts
+---@field preview nui_popup_options
+---@field list nui_popup_options

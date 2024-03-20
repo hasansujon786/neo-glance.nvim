@@ -29,18 +29,14 @@ local _neo_glance = NeoGlance:init()
 ---NeoGlance setup
 ---@param new_config? NeoGlanceUserConfig
 ---@return NeoGlance
-function NeoGlance:setup(new_config)
-  if self ~= _neo_glance then
-    self = _neo_glance
-  end
-
+function NeoGlance.setup(new_config)
   if new_config ~= nil then
-    self.corfig = Config.merge_config(new_config, self.config)
+    _neo_glance.config = Config.merge_config(new_config, _neo_glance.config)
+    _neo_glance.ui:configure(_neo_glance.config)
+    _neo_glance.lsp:configure(_neo_glance.ui)
   end
-  self.ui:configure(self.config)
-  self.lsp:configure(self.ui)
 
-  return self
+  return _neo_glance
 end
 
 -- 'textDocument/definition',
