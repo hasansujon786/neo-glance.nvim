@@ -102,7 +102,7 @@ function Ui:render_list(nodes, opts)
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
   })
-  self.list:setup_list_keymaps(self.config.mappings)
+  self.list:setup_list_keymaps()
 end
 
 ---@param location_item NeoGlanceLocation|NeoGlanceLocationItem|nil

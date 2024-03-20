@@ -1,7 +1,5 @@
 local actions = require('neo_glance.actions')
-local M = {
-  options = {},
-}
+local M = {}
 
 ---@return NeoGlanceConfig
 function M.get_default_config()

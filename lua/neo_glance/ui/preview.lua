@@ -10,7 +10,6 @@ local _g_util = require('_glance.utils')
 ---@field parent_bufnr number
 ---@field parent_winid number
 ---@field current_location NeoGlanceLocation|NeoGlanceLocationItem|nil
----@field mappings NeoGlanceConfigMappings
 local Preview = {}
 Preview.__index = Preview
 
@@ -49,6 +48,7 @@ local float_win_opts = {
   'colorcolumn',
   'fillchars',
   'winhighlight',
+  'statuscolumn',
 }
 
 -- local function clear_hl(bufnr)
@@ -61,14 +61,12 @@ local float_win_opts = {
 ---@return NeoGlanceUiPreview
 function Preview:init(opts)
   win_opts = vim.tbl_extend('keep', win_opts, opts.config.settings.preview.win_options or {})
-  return setmetatable({
-    winid = nil,
-    bufnr = nil,
-    parent_winid = nil,
-    parent_bufnr = nil,
-    current_location = nil,
-    mappings = opts.config.mappings,
-  }, self)
+  return self:create({
+    winid = 0,
+    bufnr = 0,
+    parent_winid = 0,
+    parent_bufnr = 0,
+  })
 end
 
 ---@param opts {winid:number,bufnr:number,parent_bufnr:number,parent_winid:number}
@@ -80,6 +78,7 @@ function Preview:create(opts)
     bufnr = opts.bufnr,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
+    current_location = nil,
   }, self)
 end
 
@@ -173,6 +172,7 @@ function Preview:update_buffer(item, initial)
     self:restore_win_opts()
     self:on_detach_buffer(current_bufnr, config.mappings.preview)
     vim.api.nvim_win_set_buf(self.winid, item.bufnr)
+    self:restore_win_opts()
     _g_util.win_set_options(self.winid, win_opts)
 
     -- if config.winbar.enable and self.winbar then
@@ -210,7 +210,6 @@ end
 ---@param config NeoGlanceConfig
 function Preview:configure(config)
   win_opts = vim.tbl_extend('keep', win_opts, config.settings.preview.win_options or {})
-  self.mappings = config.mappings
 end
 
 return Preview

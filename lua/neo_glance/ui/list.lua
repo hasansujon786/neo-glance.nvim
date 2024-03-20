@@ -1,3 +1,4 @@
+local Config = require('neo_glance.config')
 local api = vim.api
 
 ---@class NeoGlanceUiList
@@ -193,8 +194,8 @@ function List:expand_all()
   end
 end
 
----@param mappings NeoGlanceConfigMappings
-function List:setup_list_keymaps(mappings)
+function List:setup_list_keymaps()
+  local config = Config.get_config()
   local keymap_opts = {
     buffer = self.bufnr,
     noremap = true,
@@ -202,7 +203,7 @@ function List:setup_list_keymaps(mappings)
     silent = true,
   }
 
-  for key, action in pairs(mappings.list) do
+  for key, action in pairs(config.mappings.list) do
     vim.keymap.set('n', key, action, keymap_opts)
   end
 
