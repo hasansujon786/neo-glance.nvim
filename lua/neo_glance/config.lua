@@ -41,8 +41,8 @@ function M.get_default_config()
     winbar = { enable = true },
     border = {
       enable = false,
-      top_char = '―',
-      bottom_char = '―',
+      top_char = '─',
+      bottom_char = '─',
     },
     preview_win_opts = {
       cursorline = true,
@@ -99,7 +99,6 @@ function M.get_popup_opts(config)
       focusable = true,
       border = {
         style = border_style,
-        padding = { left = 1 }, -- maybe it need to be remove
       },
       buf_options = {
         modifiable = true,

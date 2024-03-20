@@ -1,6 +1,5 @@
-local Actions = require('neo_glance.actions')
 local Config = require('neo_glance.config')
-local Winbar = require('glance.winbar')
+local Winbar = require('neo_glance.ui.winbar')
 
 local _g_util = require('_glance.utils')
 
@@ -10,6 +9,7 @@ local _g_util = require('_glance.utils')
 ---@field parent_bufnr number
 ---@field parent_winid number
 ---@field current_location NeoGlanceLocation|NeoGlanceLocationItem|nil
+---@field winbar NeoGlanceUiWinbar
 local Preview = {}
 Preview.__index = Preview
 
@@ -35,6 +35,7 @@ local win_opts = {
   scrollbind = false,
   winhighlight = table.concat(winhl, ','),
 }
+local winbar_enable = false
 
 local float_win_opts = {
   'number',
@@ -60,26 +61,42 @@ local float_win_opts = {
 ---@param opts {config:NeoGlanceConfig}
 ---@return NeoGlanceUiPreview
 function Preview:init(opts)
+  winbar_enable = opts.config.winbar.enable
   win_opts = vim.tbl_extend('keep', win_opts, opts.config.preview_win_opts or {})
-  return self:create({
-    winid = 0,
-    bufnr = 0,
-    parent_winid = 0,
-    parent_bufnr = 0,
-  })
+
+  local scope = {
+    winid = nil,
+    bufnr = nil,
+    parent_winid = nil,
+    parent_bufnr = nil,
+    current_location = nil,
+    winbar = nil,
+  }
+
+  return setmetatable(scope, self)
 end
 
 ---@param opts {winid:number,bufnr:number,parent_bufnr:number,parent_winid:number}
 ---@return NeoGlanceUiPreview
 function Preview:create(opts)
   opts = opts or {}
-  return setmetatable({
+  local scope = {
     winid = opts.winid,
     bufnr = opts.bufnr,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
     current_location = nil,
-  }, self)
+    winbar = nil,
+  }
+
+  if winbar_enable then
+    scope.winbar = Winbar:new(opts.winid, {
+      { name = 'filename', hl = 'GlanceWinBarFilename' },
+      { name = 'filepath', hl = 'GlanceWinBarFilepath' },
+    })
+  end
+
+  return setmetatable(scope, self)
 end
 
 ---@param bufnr number
@@ -175,11 +192,11 @@ function Preview:update_buffer(item, initial)
     self:restore_win_opts()
     _g_util.win_set_options(self.winid, win_opts)
 
-    -- if config.winbar.enable and self.winbar then
-    --   local filename = vim.fn.fnamemodify(item.filename, ':t')
-    --   local filepath = vim.fn.fnamemodify(item.filename, ':p:~:h')
-    --   self.winbar:render({ filename = filename, filepath = filepath })
-    -- end
+    if config.winbar.enable and self.winbar then
+      local filename = vim.fn.fnamemodify(item.filename, ':t')
+      local filepath = vim.fn.fnamemodify(item.filename, ':p:~:h')
+      self.winbar:render({ filename = filename, filepath = filepath })
+    end
 
     vim.api.nvim_buf_call(item.bufnr, function()
       if vim.api.nvim_buf_get_option(item.bufnr, 'filetype') == '' then
@@ -209,6 +226,7 @@ end
 
 ---@param config NeoGlanceConfig
 function Preview:configure(config)
+  winbar_enable = config.winbar.enable
   win_opts = vim.tbl_extend('keep', win_opts, config.preview_win_opts or {})
 end
 

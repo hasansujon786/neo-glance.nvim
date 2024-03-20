@@ -28,7 +28,7 @@ function Ui:init(config)
   popup_opts = Config.get_popup_opts(config)
 
   return setmetatable({
-    list = List:init(),
+    list = List:init({ config = config }),
     preview = Preview:init({ config = config }),
     config = config,
   }, self)
@@ -91,7 +91,7 @@ function Ui:render_list(nodes, opts)
 
       if node:has_children() then
         -- TODO: fix cursor col position while navigating
-        line:append(node:is_expanded() and ' ' or ' ', 'SpecialChar')
+        line:append(node:is_expanded() and '  ' or '  ', 'SpecialChar')
       else
         line:append('  ')
       end
@@ -110,7 +110,7 @@ function Ui:render_list(nodes, opts)
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
   })
-  self.list:setup_list_keymaps()
+  self.list:setup()
 end
 
 ---@param location_item NeoGlanceLocation|NeoGlanceLocationItem|nil

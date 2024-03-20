@@ -5,6 +5,13 @@
 ---@field parent_bufnr number
 ---@field parent_winid number
 
+---@class NeoGlanceUiList.Create
+---@field winid number
+---@field bufnr number
+---@field tree NuiTree
+---@field parent_bufnr number
+---@field parent_winid number
+
 ---@class NeoGlanceLocation
 ---@field items NeoGlanceLocationItem[]
 ---@field filename string
@@ -31,20 +38,20 @@
 ---@class NeoGlanceConfig
 ---@field mappings NeoGlanceConfigMappings
 ---@field preview_win_opts table
----@field border BorderOpts
+---@field border NeoGlanceBorderOpts
 ---@field winbar NeoGlanceWinbarOpts
 
 ---@class NeoGlanceUserConfig
 ---@field mappings? NeoGlanceConfigMappings
 ---@field preview_win_opts? table
----@field border? BorderOpts
+---@field border? NeoGlanceBorderOpts
 ---@field winbar? NeoGlanceWinbarOpts
 
 ---@class NeoGlanceConfigMappings
 ---@field list table
 ---@field preview table
 
----@class BorderOpts
+---@class NeoGlanceBorderOpts
 ---@field enable boolean
 ---@field top_char string
 ---@field bottom_char string

@@ -1,4 +1,7 @@
 local Config = require('neo_glance.config')
+local Winbar = require('neo_glance.ui.winbar')
+local _utils = require('_glance.utils')
+
 local api = vim.api
 
 ---@class NeoGlanceUiList
@@ -7,30 +10,48 @@ local api = vim.api
 ---@field tree NuiTree
 ---@field parent_bufnr number
 ---@field parent_winid number
+---@field winbar NeoGlanceUiWinbar
 local List = {}
 List.__index = List
 
+local winbar_enable = false
+
+---@param opts {config:NeoGlanceConfig}
 ---@return NeoGlanceUiList
-function List:init()
-  return setmetatable({
+function List:init(opts)
+  winbar_enable = opts.config.winbar.enable
+
+  local scope = {
     tree = nil,
     winid = nil,
     bufnr = nil,
     parent_winid = nil,
     parent_bufnr = nil,
-  }, self)
+    winbar = nil,
+  }
+
+  return setmetatable(scope, self)
 end
 
----@param opts NeoGlanceUiList
+---@param opts NeoGlanceUiList.Create
 ---@return NeoGlanceUiList
 function List:create(opts)
-  return setmetatable({
+  local scope = {
     tree = opts.tree,
     winid = opts.winid,
     bufnr = opts.bufnr,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
-  }, self)
+    winbar = nil,
+  }
+
+  if winbar_enable then
+    scope.winbar = Winbar:new(opts.winid, {
+      { name = 'title', hl = 'GlanceWinBarTitle' },
+    })
+  end
+
+  return setmetatable(scope, self)
 end
 
 function List:get_cursor()
@@ -192,6 +213,20 @@ function List:expand_all()
   if updated then
     self.tree:render()
   end
+end
+
+local function get_lsp_method_label(method_name)
+  return _utils.capitalize('references')
+  -- return _utils.capitalize(lsp.methods[method_name].label)
+end
+
+function List:setup()
+  -- TODO: get lsp method_name and lenght
+  self.winbar:render({
+    title = string.format('%s (%d)', get_lsp_method_label(), 23),
+  })
+
+  self:setup_list_keymaps()
 end
 
 function List:setup_list_keymaps()
