@@ -1,5 +1,6 @@
 local Config = require('neo_glance.config')
 local Winbar = require('neo_glance.ui.winbar')
+local util = require('neo_glance.util')
 
 local _g_util = require('_glance.utils')
 
@@ -28,6 +29,8 @@ if vim.fn.has('nvim-0.8') == 1 then
   table.insert(winhl, 'GlanceNone:GlancePreviewMatch')
 end
 
+local border_style = nil
+local winbar_enable = false
 local win_opts = {
   winfixwidth = true,
   winfixheight = true,
@@ -35,7 +38,6 @@ local win_opts = {
   scrollbind = false,
   winhighlight = table.concat(winhl, ','),
 }
-local winbar_enable = false
 
 local float_win_opts = {
   'number',
@@ -61,8 +63,7 @@ local float_win_opts = {
 ---@param opts {config:NeoGlanceConfig}
 ---@return NeoGlanceUiPreview
 function Preview:init(opts)
-  winbar_enable = opts.config.winbar.enable
-  win_opts = vim.tbl_extend('keep', win_opts, opts.config.preview_win_opts or {})
+  self:configure(opts.config)
 
   local scope = {
     winid = nil,
@@ -74,6 +75,17 @@ function Preview:init(opts)
   }
 
   return setmetatable(scope, self)
+end
+
+function Preview:get_popup_opts(opts)
+  return util.merge({
+    enter = false,
+    focusable = true,
+    border = {
+      style = border_style,
+    },
+    win_options = win_opts,
+  }, opts or {})
 end
 
 ---@param opts {winid:number,bufnr:number,parent_bufnr:number,parent_winid:number}
@@ -186,7 +198,7 @@ function Preview:update_buffer(item, initial)
 
   if current_bufnr ~= item.bufnr then
     local config = Config.get_config()
-    self:restore_win_opts()
+
     self:on_detach_buffer(current_bufnr, config.mappings.preview)
     vim.api.nvim_win_set_buf(self.winid, item.bufnr)
     self:restore_win_opts()
@@ -228,6 +240,7 @@ end
 function Preview:configure(config)
   winbar_enable = config.winbar.enable
   win_opts = vim.tbl_extend('keep', win_opts, config.preview_win_opts or {})
+  border_style = Config.get_popup_opts(config)
 end
 
 return Preview

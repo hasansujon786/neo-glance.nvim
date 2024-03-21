@@ -67,48 +67,18 @@ function M.get_config()
 end
 
 ---@param config NeoGlanceConfig
----@return NeoGlancePopupOpts
 function M.get_popup_opts(config)
   ---@type table|string
   local border_style = 'none'
   if config.border.enable then
     -- stylua: ignore
     border_style =  {
-      top_left    = "", top    = config.border.top_char,       top_right = "",
-      left        = "",                                            right = "",
-      bottom_left = "", bottom = config.border.bottom_char, bottom_right = "",
+      top_left    = '', top    = config.border.top_char,       top_right = '',
+      left        = '',                                            right = '',
+      bottom_left = '', bottom = config.border.bottom_char, bottom_right = '',
     }
   end
-
-  ---@type NeoGlancePopupOpts
-  local opts = {
-    preview = {
-      enter = false,
-      focusable = true,
-      border = {
-        style = border_style,
-      },
-      buf_options = {
-        modifiable = true,
-        readonly = false,
-      },
-      win_options = {},
-    },
-    list = {
-      enter = false,
-      focusable = true,
-      border = {
-        style = border_style,
-      },
-      buf_options = {
-        modifiable = true,
-        readonly = false,
-      },
-      win_options = {},
-    },
-  }
-
-  return opts
+  return border_style
 end
 
 return M

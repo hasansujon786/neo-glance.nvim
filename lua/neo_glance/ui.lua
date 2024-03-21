@@ -1,31 +1,21 @@
-local Actions = require('neo_glance.actions')
-local Config = require('neo_glance.config')
 local Layout = require('nui.layout')
 local NuiLine = require('nui.line')
 local NuiTree = require('nui.tree')
 local Popup = require('nui.popup')
+local event = require('nui.utils.autocmd').event
 
+local Actions = require('neo_glance.actions')
 local List = require('neo_glance.ui.list')
 local Preview = require('neo_glance.ui.preview')
-
-local event = require('nui.utils.autocmd').event
-local util = require('neo_glance.util')
 
 ---@class NeoGlanceUI
 ---@field config NeoGlanceConfig
 local Ui = {}
 Ui.__index = Ui
 
----@type NeoGlancePopupOpts
-local popup_opts = {
-  list = {},
-  preview = {},
-}
-
 ---@param config NeoGlanceConfig
 function Ui:init(config)
   Actions:init(config)
-  popup_opts = Config.get_popup_opts(config)
 
   return setmetatable({
     list = List:init({ config = config }),
@@ -37,11 +27,8 @@ end
 ---@param opts UiRenderOpts
 ---@param node_extractor NeoGlanceNodeExtractor
 function Ui:render(opts, node_extractor)
-  local list_conf = util.merge(popup_opts.list, opts.list_opts or {})
-  local preview_conf = util.merge(popup_opts.preview, opts.preview_opts or {})
-
-  self.list_pop = Popup(list_conf)
-  self.preview_pop = Popup(preview_conf)
+  self.list_pop = Popup(self.list:get_popup_opts(opts.list_opts))
+  self.preview_pop = Popup(self.preview:get_popup_opts(opts.preview_opts))
 
   self.layout = Layout(
     {
@@ -128,9 +115,9 @@ end
 ---@param config NeoGlanceConfig
 function Ui:configure(config)
   self.preview:configure(config)
+  self.list:configure(config)
   Actions:configure(config)
   self.config = config
-  popup_opts = Config.get_popup_opts(config)
 end
 
 return Ui

@@ -1,6 +1,7 @@
 local Config = require('neo_glance.config')
 local Winbar = require('neo_glance.ui.winbar')
 local _utils = require('_glance.utils')
+local util = require('neo_glance.util')
 
 local api = vim.api
 
@@ -14,24 +15,30 @@ local api = vim.api
 local List = {}
 List.__index = List
 
+local winhl = {
+  'Normal:GlanceListNormal',
+  'CursorLine:GlanceListCursorLine',
+  'EndOfBuffer:GlanceListEndOfBuffer',
+}
+local border_style = nil
 local winbar_enable = false
+local win_opts = {
+  winfixwidth = true,
+  winfixheight = true,
+  cursorline = true,
+  wrap = false,
+  signcolumn = 'no',
+  foldenable = false,
+  winhighlight = table.concat(winhl, ','),
+}
 
----@param opts {config:NeoGlanceConfig}
----@return NeoGlanceUiList
-function List:init(opts)
-  winbar_enable = opts.config.winbar.enable
-
-  local scope = {
-    tree = nil,
-    winid = nil,
-    bufnr = nil,
-    parent_winid = nil,
-    parent_bufnr = nil,
-    winbar = nil,
-  }
-
-  return setmetatable(scope, self)
-end
+local buf_opts = {
+  bufhidden = 'wipe',
+  buftype = 'nofile',
+  swapfile = false,
+  buflisted = false,
+  filetype = 'Glance',
+}
 
 ---@param opts NeoGlanceUiList.Create
 ---@return NeoGlanceUiList
@@ -52,6 +59,35 @@ function List:create(opts)
   end
 
   return setmetatable(scope, self)
+end
+
+---@param opts {config:NeoGlanceConfig}
+---@return NeoGlanceUiList
+function List:init(opts)
+  self:configure(opts.config)
+
+  local scope = {
+    tree = nil,
+    winid = nil,
+    bufnr = nil,
+    parent_winid = nil,
+    parent_bufnr = nil,
+    winbar = nil,
+  }
+
+  return setmetatable(scope, self)
+end
+
+function List:get_popup_opts(opts)
+  return util.merge({
+    enter = false,
+    focusable = true,
+    border = {
+      style = border_style,
+    },
+    buf_options = buf_opts,
+    win_options = win_opts,
+  }, opts or {})
 end
 
 function List:get_cursor()
@@ -226,10 +262,10 @@ function List:setup()
     title = string.format('%s (%d)', get_lsp_method_label(), 23),
   })
 
-  self:setup_list_keymaps()
+  self:on_attach_buffer()
 end
 
-function List:setup_list_keymaps()
+function List:on_attach_buffer()
   local config = Config.get_config()
   local keymap_opts = {
     buffer = self.bufnr,
@@ -274,6 +310,12 @@ function List:setup_list_keymaps()
   --   tree:remove_node(node:get_id())
   --   tree:render()
   -- end, map_opt)
+end
+
+---@param config NeoGlanceConfig
+function List:configure(config)
+  winbar_enable = config.winbar.enable
+  border_style = Config.get_popup_opts(config)
 end
 
 return List
