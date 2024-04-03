@@ -49,6 +49,16 @@ function M.get_default_config()
       number = true,
       wrap = true,
     },
+    folds = {
+      fold_closed = '',
+      fold_open = '',
+      folded = true,
+      ellipsis = '⋯', -- ⋯ 
+    },
+    indent_lines = {
+      enable = true,
+      icon = '│',
+    },
   }
 
   return config

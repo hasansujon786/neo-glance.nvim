@@ -1,4 +1,6 @@
 local Config = require('neo_glance.config')
+local NuiLine = require('nui.line')
+local NuiTree = require('nui.tree')
 local Winbar = require('neo_glance.ui.winbar')
 local _utils = require('_glance.utils')
 local util = require('neo_glance.util')
@@ -44,11 +46,11 @@ local buf_opts = {
 ---@return NeoGlanceUiList
 function List:create(opts)
   local scope = {
-    tree = opts.tree,
     winid = opts.winid,
     bufnr = opts.bufnr,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
+    tree = self:generate_tree(opts.nodes, opts.bufnr, opts.winid),
     winbar = nil,
   }
 
@@ -67,11 +69,11 @@ function List:init(opts)
   self:configure(opts.config)
 
   local scope = {
-    tree = nil,
     winid = nil,
     bufnr = nil,
     parent_winid = nil,
     parent_bufnr = nil,
+    tree = nil,
     winbar = nil,
   }
 
@@ -258,22 +260,81 @@ end
 
 function List:setup()
   -- TODO: get lsp method_name and lenght
-  self.winbar:render({
-    title = string.format('%s (%d)', get_lsp_method_label(), 23),
+  self.winbar:render({ title = string.format('%s (%d)', get_lsp_method_label(), 23) })
+  self:on_attach_buffer()
+  self.tree:render()
+end
+
+---@param nodes NuiTree.Node[]
+---@param bufnr number
+---@param winid number
+function List:generate_tree(nodes, bufnr, winid)
+  local config = Config.get_config()
+  local icons = {
+    ellipsis = config.folds.ellipsis,
+    fold_closed = string.format(' %s ', config.folds.fold_closed),
+    fold_open = string.format(' %s ', config.folds.fold_open),
+    indent = string.format(' %s  ', config.indent_lines.icon),
+  }
+  local win_width = api.nvim_win_get_width(winid)
+  local nodes_has_parent = nodes[1]:has_children()
+
+  local tree = NuiTree({
+    bufnr = bufnr,
+    nodes = nodes,
+    prepare_node = function(node)
+      local available_space = win_width
+      local line = NuiLine()
+
+      if node:has_children() then
+        -- TODO: fix cursor col position while navigating
+        line:append(node:is_expanded() and icons.fold_open or icons.fold_closed, 'GlanceFoldIcon')
+        line:append(vim.fn.fnamemodify(node.text, ':t'), 'GlanceListFilename')
+        line:append(' ')
+        local ref_count = string.format(' %d ', #node:get_child_ids())
+        available_space = available_space - (line:width() + string.len(ref_count))
+
+        local file_path = vim.fn.fnamemodify(node.text, ':p:.:h')
+        if string.len(file_path) <= available_space then
+          line:append(file_path, 'GlanceListFilepath')
+          available_space = available_space - string.len(file_path)
+        else
+          local shorten_path = string.sub(file_path, 0, (available_space - 1)) .. icons.ellipsis
+          line:append(shorten_path, 'GlanceListFilepath')
+          available_space = available_space - string.len(shorten_path)
+        end
+
+        line:append(string.rep(' ', available_space), 'GlanceListFilepath')
+        line:append(ref_count, 'GlanceListCount')
+      else
+        if nodes_has_parent and config.indent_lines.enable then
+          line:append(string.rep(icons.indent, node:get_depth() - 1), 'GlanceIndent') -- add depth on children node
+        else
+          line:append(' ')
+        end
+        line:append(node.text)
+      end
+
+      return line
+    end,
   })
 
-  self:on_attach_buffer()
+  return tree
 end
 
 function List:on_attach_buffer()
   local config = Config.get_config()
+
+  if not config.folds.folded then
+    self:expand_all()
+  end
+
   local keymap_opts = {
     buffer = self.bufnr,
     noremap = true,
     nowait = true,
     silent = true,
   }
-
   for key, action in pairs(config.mappings.list) do
     vim.keymap.set('n', key, action, keymap_opts)
   end

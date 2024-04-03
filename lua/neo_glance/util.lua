@@ -52,6 +52,10 @@ function M.create_tree_nodes_from_locations(locations)
       }, child_nodes)
     )
   end
+  if #nodes == 1 then
+    return nodes[1].__children, first_node_child
+  end
+
   return nodes, first_node_child
 end
 

@@ -8,7 +8,8 @@
 ---@class NeoGlanceUiList.Create
 ---@field winid number
 ---@field bufnr number
----@field tree NuiTree
+---@field nodes NuiTree.Node[]
+---@field nodes_has_parent boolean
 ---@field parent_bufnr number
 ---@field parent_winid number
 
@@ -40,12 +41,16 @@
 ---@field preview_win_opts table
 ---@field border NeoGlanceBorderOpts
 ---@field winbar NeoGlanceWinbarOpts
+---@field folds NeoGlanceFoldsrOpts
+---@field indent_lines NeoGlanceIndentOpts
 
 ---@class NeoGlanceUserConfig
 ---@field mappings? NeoGlanceConfigMappings
 ---@field preview_win_opts? table
 ---@field border? NeoGlanceBorderOpts
 ---@field winbar? NeoGlanceWinbarOpts
+---@field folds? NeoGlanceFoldsrOpts
+---@field indent_lines? NeoGlanceIndentOpts
 
 ---@class NeoGlanceConfigMappings
 ---@field list table
@@ -56,9 +61,19 @@
 ---@field top_char string
 ---@field bottom_char string
 
----@class NeoGlanceWinbarOpts
----@field enable boolean
-
 ---@class NeoGlancePopupOpts
 ---@field preview nui_popup_options
 ---@field list nui_popup_options
+
+---@class NeoGlanceWinbarOpts
+---@field enable boolean
+
+---@class NeoGlanceFoldsrOpts
+---@field folded boolean
+---@field fold_closed string
+---@field fold_open string
+---@field ellipsis string
+
+---@class NeoGlanceIndentOpts
+---@field enable boolean
+---@field icon string

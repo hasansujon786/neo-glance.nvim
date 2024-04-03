@@ -1,6 +1,4 @@
 local Layout = require('nui.layout')
-local NuiLine = require('nui.line')
-local NuiTree = require('nui.tree')
 local Popup = require('nui.popup')
 local event = require('nui.utils.autocmd').event
 
@@ -64,34 +62,11 @@ function Ui:render(opts, node_extractor)
   })
 end
 
----@param nodes table
+---@param nodes NuiTree.Node[]
 ---@param opts UiRenderOpts
 function Ui:render_list(nodes, opts)
-  local tree = NuiTree({
-    bufnr = self.list_pop.bufnr,
-    -- winid = split.winid,
-    nodes = nodes,
-    prepare_node = function(node)
-      local line = NuiLine()
-
-      line:append(string.rep('  ', node:get_depth() - 1))
-
-      if node:has_children() then
-        -- TODO: fix cursor col position while navigating
-        line:append(node:is_expanded() and '  ' or '  ', 'SpecialChar')
-      else
-        line:append('  ')
-      end
-
-      line:append(node.text)
-
-      return line
-    end,
-  })
-
-  tree:render()
   self.list = List:create({
-    tree = tree,
+    nodes = nodes,
     winid = self.list_pop.winid,
     bufnr = self.list_pop.bufnr,
     parent_winid = opts.parent_winid,
