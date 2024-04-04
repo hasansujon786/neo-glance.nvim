@@ -9,7 +9,6 @@
 ---@field winid number
 ---@field bufnr number
 ---@field nodes NuiTree.Node[]
----@field nodes_has_parent boolean
 ---@field parent_bufnr number
 ---@field parent_winid number
 

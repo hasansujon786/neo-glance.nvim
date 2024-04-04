@@ -32,6 +32,7 @@ end
 local border_style = nil
 local winbar_enable = false
 local win_opts = {
+  winbar = nil,
   winfixwidth = true,
   winfixheight = true,
   cursorbind = false,
@@ -240,7 +241,11 @@ end
 function Preview:configure(config)
   winbar_enable = config.winbar.enable
   win_opts = vim.tbl_extend('keep', win_opts, config.preview_win_opts or {})
-  border_style = Config.get_popup_opts(config)
+  border_style = Config.get_popup_opts(config, 'GlancePreviewBorderBottom')
+
+  if winbar_enable then
+    win_opts.winbar = '...'
+  end
 end
 
 return Preview

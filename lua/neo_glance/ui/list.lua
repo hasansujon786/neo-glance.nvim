@@ -25,6 +25,7 @@ local winhl = {
 local border_style = nil
 local winbar_enable = false
 local win_opts = {
+  winbar = nil,
   winfixwidth = true,
   winfixheight = true,
   cursorline = true,
@@ -262,7 +263,6 @@ function List:setup()
   -- TODO: get lsp method_name and lenght
   self.winbar:render({ title = string.format('%s (%d)', get_lsp_method_label(), 23) })
   self:on_attach_buffer()
-  self.tree:render()
 end
 
 ---@param nodes NuiTree.Node[]
@@ -278,6 +278,9 @@ function List:generate_tree(nodes, bufnr, winid)
   }
   local win_width = api.nvim_win_get_width(winid)
   local nodes_has_parent = nodes[1]:has_children()
+  if nodes_has_parent then
+    nodes[1]:expand()
+  end
 
   local tree = NuiTree({
     bufnr = bufnr,
@@ -339,8 +342,13 @@ function List:on_attach_buffer()
     vim.keymap.set('n', key, action, keymap_opts)
   end
 
+  self.tree:render()
+
+  local nodes_has_parent = self.tree:get_nodes()[1]:has_children()
+  local row = nodes_has_parent and 2 or 1
   vim.defer_fn(function()
     api.nvim_set_current_win(self.winid)
+    api.nvim_win_set_cursor(self.winid, { row, 1 })
   end, 50)
   --------------------------------------------------
   -- NuiTree mappings ------------------------------
@@ -376,7 +384,11 @@ end
 ---@param config NeoGlanceConfig
 function List:configure(config)
   winbar_enable = config.winbar.enable
-  border_style = Config.get_popup_opts(config)
+  border_style = Config.get_popup_opts(config, 'GlanceListBorderBottom')
+
+  if winbar_enable then
+    win_opts.winbar = '...'
+  end
 end
 
 return List
