@@ -48,6 +48,7 @@ function Lsp:handle_lsp_results(result, params, offset_encoding, parent_bufnr, p
     locations = locations,
     parent_bufnr = parent_bufnr,
     parent_winid = parent_winid,
+    params = params,
   }, util.create_tree_nodes_from_locations)
 end
 

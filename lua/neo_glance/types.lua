@@ -4,6 +4,7 @@
 ---@field locations NeoGlanceLocation[]
 ---@field parent_bufnr number
 ---@field parent_winid number
+---@field params NeoGlanceLpsParams
 
 ---@class NeoGlanceUiList.Create
 ---@field winid number
@@ -35,21 +36,39 @@
 
 ---@alias NeoGlanceNodeExtractor fun(locations: NeoGlanceLocation[]): NuiTree.Node[], NeoGlanceLocationItem
 
+---@class NeoGlanceLpsParams
+---@field context table
+---@field position table
+---@field textDocument table
+
+-- Config type --
 ---@class NeoGlanceConfig
----@field mappings NeoGlanceConfigMappings
+---@field height number
+---@field zindex number
+---@field detached fun(winid:number): boolean
+---@field list NeoGlanceListOpts
 ---@field preview_win_opts table
 ---@field border NeoGlanceBorderOpts
 ---@field winbar NeoGlanceWinbarOpts
 ---@field folds NeoGlanceFoldsrOpts
 ---@field indent_lines NeoGlanceIndentOpts
+---@field mappings NeoGlanceConfigMappings
 
 ---@class NeoGlanceUserConfig
----@field mappings? NeoGlanceConfigMappings
+---@field height? number
+---@field zindex? number
+---@field detached? fun(winid:number): boolean
+---@field list? NeoGlanceListOpts
 ---@field preview_win_opts? table
 ---@field border? NeoGlanceBorderOpts
 ---@field winbar? NeoGlanceWinbarOpts
 ---@field folds? NeoGlanceFoldsrOpts
 ---@field indent_lines? NeoGlanceIndentOpts
+---@field mappings? NeoGlanceConfigMappings
+
+---@class NeoGlanceListOpts
+---@field position 'left'|'right'
+---@field width number
 
 ---@class NeoGlanceConfigMappings
 ---@field list table

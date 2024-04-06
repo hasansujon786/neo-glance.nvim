@@ -5,6 +5,36 @@ local M = {}
 function M.get_default_config()
   ---@type NeoGlanceConfig
   local config = {
+    height = 18,
+    zindex = 45,
+    detached = function(winid)
+      return vim.api.nvim_win_get_width(winid) < 100
+    end,
+    list = {
+      position = 'right',
+      width = 0.33, -- 33% width relative to the active window, min 0.1, max 0.5
+    },
+    winbar = { enable = true },
+    border = {
+      enable = false,
+      top_char = '─',
+      bottom_char = '─',
+    },
+    preview_win_opts = {
+      cursorline = true,
+      number = true,
+      wrap = true,
+    },
+    folds = {
+      fold_closed = '',
+      fold_open = '',
+      folded = true,
+      ellipsis = '⋯', -- ⋯ 
+    },
+    indent_lines = {
+      enable = true,
+      icon = '│',
+    },
     mappings = {
       list = {
         ['<tab>'] = actions.next_location,
@@ -38,27 +68,6 @@ function M.get_default_config()
         -- ['<leader>q'] = actions.close,
       },
     },
-    winbar = { enable = true },
-    border = {
-      enable = false,
-      top_char = '─',
-      bottom_char = '─',
-    },
-    preview_win_opts = {
-      cursorline = true,
-      number = true,
-      wrap = true,
-    },
-    folds = {
-      fold_closed = '',
-      fold_open = '',
-      folded = true,
-      ellipsis = '⋯', -- ⋯ 
-    },
-    indent_lines = {
-      enable = true,
-      icon = '│',
-    },
   }
 
   return config
@@ -90,6 +99,13 @@ function M.get_popup_opts(config, bottom_hl)
     }
   end
   return border_style
+end
+
+---@param winid number
+---@param config NeoGlanceConfig
+---@return number
+function M.get_preview_win_height(winid, config)
+  return math.min(vim.fn.winheight(winid), config.height)
 end
 
 return M
