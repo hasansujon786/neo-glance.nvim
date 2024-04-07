@@ -26,26 +26,32 @@ end
 
 function actions.next()
   local item = actions.list:next()
-  actions.preview:update_buffer(item)
+  local group_nodes = actions.list:get_active_group_nodes()
+  actions.preview:update_buffer(item, group_nodes)
 end
 
 function actions.previous()
   local item = actions.list:previous()
-  actions.preview:update_buffer(item)
+  local group_nodes = actions.list:get_active_group_nodes()
+  actions.preview:update_buffer(item, group_nodes)
 end
 
 function actions.next_location()
   local item = actions.list:next({ cycle = true, skip_groups = true })
-  actions.preview:update_buffer(item)
+  local group_nodes = actions.list:get_active_group_nodes()
+  actions.preview:update_buffer(item, group_nodes)
 end
 
 function actions.previous_location()
   local item = actions.list:previous({ cycle = true, skip_groups = true })
-  actions.preview:update_buffer(item)
+  local group_nodes = actions.list:get_active_group_nodes()
+  actions.preview:update_buffer(item, group_nodes)
 end
 
 function actions.close()
   vim.api.nvim_del_augroup_by_name('NeoGlance')
+  actions.list:close()
+  actions.preview:close()
   actions.list_popup:unmount()
   actions.preview_popup:unmount()
 end

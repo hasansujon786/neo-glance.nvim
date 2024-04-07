@@ -70,12 +70,11 @@ function Ui:render(opts, node_extractor)
   self.preview_pop:on(event.WinClosed, exit_layout, { once = true })
   self.list_pop:on(event.WinClosed, exit_layout, { once = true })
 
-  local augroup = vim.api.nvim_create_augroup('NeoGlance', { clear = true })
+  vim.api.nvim_create_augroup('NeoGlance', { clear = true })
 
-  local nodes, first_child = node_extractor(opts.locations)
+  local nodes, first_node_child_data = node_extractor(opts.locations)
   self:render_list(nodes, opts)
-
-  self:render_preview(first_child, true, opts)
+  self:render_preview(first_node_child_data, opts, nodes)
 
   Actions:create({
     list = self.list,
@@ -94,20 +93,24 @@ function Ui:render_list(nodes, opts)
     bufnr = self.list_pop.bufnr,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
+    raw_locations = opts.locations,
   })
   self.list:setup()
 end
 
 ---@param location_item NeoGlanceLocation|NeoGlanceLocationItem|nil
----@param initial? boolean
-function Ui:render_preview(location_item, initial, opts)
+---@param opts UiRenderOpts
+---@param nodes NuiTree.Node[]
+function Ui:render_preview(location_item, opts, nodes)
   self.preview = Preview:create({
     winid = self.preview_pop.winid,
     bufnr = self.preview_pop.bufnr,
     parent_winid = opts.parent_winid,
     parent_bufnr = opts.parent_bufnr,
   })
-  self.preview:update_buffer(location_item, initial)
+
+  local current_group_nodes = self.list:get_active_group_nodes({ nodes = nodes })
+  self.preview:update_buffer(location_item, current_group_nodes)
 end
 
 ---@param winid number

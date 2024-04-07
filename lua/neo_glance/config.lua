@@ -1,5 +1,8 @@
 local actions = require('neo_glance.actions')
-local M = {}
+local M = {
+  hl_ns = 'Glance',
+  namespace = vim.api.nvim_create_namespace('Glance'),
+}
 
 ---@return NeoGlanceConfig
 function M.get_default_config()
@@ -29,7 +32,7 @@ function M.get_default_config()
       fold_closed = '',
       fold_open = '',
       folded = true,
-      ellipsis = '⋯', -- ⋯ 
+      ellipsis = '…', -- ⋯ 
     },
     indent_lines = {
       enable = true,

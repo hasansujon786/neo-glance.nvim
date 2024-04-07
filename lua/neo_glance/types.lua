@@ -12,6 +12,7 @@
 ---@field nodes NuiTree.Node[]
 ---@field parent_bufnr number
 ---@field parent_winid number
+---@field raw_locations NeoGlanceLocation[]
 
 ---@class NeoGlanceLocation
 ---@field items NeoGlanceLocationItem[]

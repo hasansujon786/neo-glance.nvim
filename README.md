@@ -8,5 +8,4 @@
 
 
 # Todo
-- [ ] Show Preview match
 - [ ] Show method name on winbar

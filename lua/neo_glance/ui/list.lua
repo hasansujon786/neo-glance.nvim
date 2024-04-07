@@ -14,6 +14,7 @@ local api = vim.api
 ---@field parent_bufnr number
 ---@field parent_winid number
 ---@field winbar NeoGlanceUiWinbar
+---@field raw_locations NeoGlanceLocation[]
 local List = {}
 List.__index = List
 
@@ -103,6 +104,11 @@ end
 
 function List:get_col()
   return self:get_cursor()[2]
+end
+
+function List:get_current_node(id)
+  id = id or self:get_line() or 1
+  return self.tree:get_node(id)
 end
 
 ---@param opts { start: integer, backwards?: boolean, cycle?: boolean }
@@ -355,11 +361,11 @@ function List:on_attach_buffer()
   --------------------------------------------------
 
   -- print current node
-  -- pop:map('n', '<CR>', function()
-  --   local node = tree:get_node()
-  --   _G.foo = node
-  --   -- print(vim.inspect(node))
-  -- end, map_opt)
+  vim.keymap.set('n', '.', function()
+    local node = self.tree:get_node()
+    -- _G.foo = node
+    print(vim.inspect(node:get_parent_id()))
+  end, keymap_opts)
 
   -- -- add new node under current node
   -- pop:map('n', 'a', function()
@@ -380,6 +386,37 @@ function List:on_attach_buffer()
   --   tree:render()
   -- end, map_opt)
 end
+
+---@param opts? {nodes:NuiTree.Node[]}
+---@return NuiTree.Node[]
+function List:get_active_group_nodes(opts)
+  if opts ~= nil and type(opts.nodes) == 'table' then
+    if opts.nodes[1]:has_children() then
+      return self.tree:get_nodes(opts.nodes[1]:get_id())
+    end
+    return opts.nodes
+  end
+
+  local current_node = self:get_current_node()
+  if current_node ~= nil then
+    local id = current_node:has_children() and current_node:get_id() or current_node:get_parent_id()
+    return self.tree:get_nodes(id)
+  end
+
+  return self.tree:get_nodes()
+end
+
+function List:close()
+  if vim.api.nvim_win_is_valid(self.winid) then
+    vim.api.nvim_win_close(self.winid, true)
+  end
+
+  if vim.api.nvim_buf_is_valid(self.bufnr) then
+    vim.api.nvim_buf_delete(self.bufnr, {})
+  end
+end
+
+-- function List:destroy() end
 
 ---@param config NeoGlanceConfig
 function List:configure(config)

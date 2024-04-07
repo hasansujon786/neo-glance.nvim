@@ -55,11 +55,11 @@ local float_win_opts = {
   'statuscolumn',
 }
 
--- local function clear_hl(bufnr)
---   if vim.api.nvim_buf_is_valid(bufnr) then
---     vim.api.nvim_buf_clear_namespace(bufnr, config.namespace, 0, -1)
---   end
--- end
+local function clear_hl(bufnr)
+  if vim.api.nvim_buf_is_valid(bufnr) then
+    vim.api.nvim_buf_clear_namespace(bufnr, Config.namespace, 0, -1)
+  end
+end
 
 ---@param opts {config:NeoGlanceConfig}
 ---@return NeoGlanceUiPreview
@@ -181,8 +181,9 @@ function Preview:restore_win_opts()
 end
 
 ---@param item NeoGlanceLocation|NeoGlanceLocationItem|nil
+---@param group_nodes NuiTree.Node[]
 ---@param initial? boolean
-function Preview:update_buffer(item, initial)
+function Preview:update_buffer(item, group_nodes, initial)
   if not vim.api.nvim_win_is_valid(self.winid) then
     return
   end
@@ -229,12 +230,62 @@ function Preview:update_buffer(item, initial)
 
   self.current_location = item
 
-  -- if not vim.tbl_contains(touched_buffers, item.bufnr) then
-  --   for _, location in pairs(group.items) do
-  --     self:hl_buf(location)
-  --   end
-  --   table.insert(touched_buffers, item.bufnr)
-  -- end
+  if type(group_nodes) == 'table' and not vim.tbl_contains(touched_buffers, item.bufnr) then
+    for _, node in pairs(group_nodes) do
+      self:hl_buf(node.data)
+    end
+    table.insert(touched_buffers, item.bufnr)
+  end
+end
+
+function Preview:clear_hl()
+  for _, bufnr in ipairs(touched_buffers) do
+    clear_hl(bufnr)
+  end
+  touched_buffers = {}
+end
+
+function Preview:hl_buf(location)
+  for row = location.start_line, location.end_line, 1 do
+    local start_col = 0
+    local end_col = -1
+
+    if row == location.start_line then
+      start_col = location.start_col
+    end
+
+    if row == location.end_line then
+      end_col = location.end_col
+    end
+
+    local match_hl = vim.fn.has('nvim-0.8') == 1 and 'None' or 'PreviewMatch'
+
+    vim.api.nvim_buf_add_highlight(location.bufnr, Config.namespace, Config.hl_ns .. match_hl, row, start_col, end_col)
+  end
+end
+
+function Preview:close()
+  local config = Config.get_config()
+  self:on_detach_buffer((self.current_location or {}).bufnr, config.mappings.preview)
+  -- self:restore_win_opts()
+
+  if vim.api.nvim_win_is_valid(self.winid) then
+    vim.api.nvim_win_close(self.winid, true)
+  end
+
+  for _, bufnr in ipairs(touched_buffers) do
+    -- INFO: know more about this func
+    if vim.api.nvim_buf_is_valid(bufnr) and vim.fn.buflisted(bufnr) ~= 1 then
+      if vim.fn.has('nvim-0.9.2') == 1 and type(vim.lsp.inlay_hint) == 'function' then
+        vim.lsp.inlay_hint(bufnr, false)
+      end
+      vim.api.nvim_buf_delete(bufnr, { force = true })
+    else
+      clear_hl(bufnr)
+    end
+  end
+
+  touched_buffers = {}
 end
 
 ---@param config NeoGlanceConfig
